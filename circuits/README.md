@@ -1,4 +1,4 @@
-# ProofPay — Circom Circuits
+# Nullius — Circom Circuits
 
 ## Circuit: `reputation_score.circom`
 
