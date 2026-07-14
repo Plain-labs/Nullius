@@ -92,7 +92,7 @@ export async function generateReputationProof(
     commitment,
   };
 
-  console.log("[ProofPay] Generating Groth16 proof (this may take 5–15s)...");
+  console.log("[Nullius] Generating Groth16 proof (this may take 5–15s)...");
   const { proof, publicSignals } = await snarkjs.groth16.fullProve(
     circuitInputs,
     WASM_PATH,

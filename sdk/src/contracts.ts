@@ -62,9 +62,9 @@ function encodeScalar(dec: string): Uint8Array {
 }
 
 // ----------------------------------------------------------------
-// ProofPay Contract Client
+// Nullius Contract Client
 // ----------------------------------------------------------------
-export class ProofPayClient {
+export class NulliusClient {
   private server: SorobanRpc.Server;
 
   constructor() {
