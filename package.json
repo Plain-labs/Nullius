@@ -1,0 +1,20 @@
+{
+  "name": "proofpay",
+  "private": true,
+  "workspaces": ["sdk", "frontend"],
+  "scripts": {
+    "dev": "npm run dev --workspace=frontend",
+    "build:sdk": "npm run build --workspace=sdk",
+    "build:frontend": "npm run build --workspace=frontend",
+    "circuit:compile": "cd circuits && ./scripts/compile.sh",
+    "circuit:setup": "cd circuits && ./scripts/setup.sh",
+    "vk:extract": "node scripts/extract_vk.js",
+    "vk:patch": "node scripts/patch_verifier.js",
+    "vk:all": "npm run vk:extract && npm run vk:patch",
+    "contracts:build": "cargo build --release --target wasm32-unknown-unknown",
+    "contracts:test": "cargo test",
+    "deploy:testnet": "node scripts/deploy.js",
+    "test:e2e": "node scripts/e2e_test.js",
+    "setup:all": "npm install && npm run circuit:compile && npm run circuit:setup && npm run vk:all && npm run contracts:build && npm run deploy:testnet"
+  }
+}
