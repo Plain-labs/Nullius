@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ProofPay — Verifier Auto-Patcher
+ * Nullius — Verifier Auto-Patcher
  *
  * After extract_vk.js writes vk_bytes.rs, this script updates
  * contracts/groth16_verifier/src/lib.rs to import and use the real VK

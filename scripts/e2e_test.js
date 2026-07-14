@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ProofPay — End-to-End Integration Test
+ * Nullius — End-to-End Integration Test
  *
  * Runs the full pipeline without a browser:
  *   1. Generate a Groth16 proof using snarkjs
@@ -306,7 +306,7 @@ async function assertQuote(tier) {
 // Run all steps
 // ----------------------------------------------------------------
 (async () => {
-  console.log("=== ProofPay End-to-End Test ===\n");
+  console.log("=== Nullius End-to-End Test ===\n");
   try {
     const { proof, publicSignals, inputs } = await generateProof();
     await verifyLocally(proof, publicSignals);
@@ -314,7 +314,7 @@ async function assertQuote(tier) {
     const tier = await assertTier();
     await assertQuote(tier);
 
-    console.log("\n✓ All tests passed. ProofPay is working end-to-end on Stellar testnet.");
+    console.log("\n✓ All tests passed. Nullius is working end-to-end on Stellar testnet.");
   } catch (err) {
     console.error("\n✗ Test failed:", err.message);
     process.exit(1);

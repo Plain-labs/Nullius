@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ProofPay — Testnet Deployment Script
+ * Nullius — Testnet Deployment Script
  *
  * Deploys all three contracts in order to Stellar testnet:
  *   1. groth16_verifier
@@ -81,7 +81,7 @@ function invokeContract(contractId, fn, args, label) {
 // ----------------------------------------------------------------
 // Main deployment flow
 // ----------------------------------------------------------------
-console.log("=== ProofPay Testnet Deployment ===");
+console.log("=== Nullius Testnet Deployment ===");
 console.log(`Network:  ${NETWORK}`);
 console.log(`Deployer: ${SOURCE}`);
 console.log("");

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * ProofPay — VK Extractor
+ * Nullius — VK Extractor
  *
  * Converts circuits/keys/verification_key.json (output of snarkjs setup)
  * into properly encoded Rust byte arrays for the Groth16 verifier contract.
