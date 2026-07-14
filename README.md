@@ -1,4 +1,4 @@
-# ProofPay — ZK Reputation Layer for Stellar Payments
+# Nullius — ZK Reputation Layer for Stellar Payments
 
 > Prove your financial trustworthiness on Stellar without revealing any underlying data.
 
@@ -6,7 +6,7 @@ Built for **Stellar Hacks: Real-World ZK** (June 2025).
 
 ## What it does
 
-ProofPay lets users prove their payment reputation (transaction history, clean record, wallet age) using **zero-knowledge proofs** — without exposing any raw financial data. A Soroban smart contract verifies the proof on-chain, assigns a **Bronze / Silver / Gold** tier, and a payment gate enforces lower fees and higher limits for verified users.
+Nullius lets users prove their payment reputation (transaction history, clean record, wallet age) using **zero-knowledge proofs** — without exposing any raw financial data. A Soroban smart contract verifies the proof on-chain, assigns a **Bronze / Silver / Gold** tier, and a payment gate enforces lower fees and higher limits for verified users.
 
 ```
 User inputs financial data (stays in browser)
@@ -43,7 +43,7 @@ PaymentGate enforces fee rate + payment limits
 ## Monorepo structure
 
 ```
-proofpay/
+nullius/
 ├── circuits/
 │   ├── reputation_score.circom   # ZK circuit
 │   ├── scripts/

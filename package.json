@@ -1,5 +1,5 @@
 {
-  "name": "proofpay",
+  "name": "nullius",
   "private": true,
   "workspaces": ["sdk", "frontend"],
   "scripts": {
