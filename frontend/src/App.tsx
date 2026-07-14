@@ -3,7 +3,7 @@ import { useFreighter } from "./hooks/useFreighter";
 import { ProofGenerator } from "./components/ProofGenerator";
 import { ReputationCard } from "./components/ReputationCard";
 import { PaymentWidget } from "./components/PaymentWidget";
-import type { ProofBundle, Tier } from "@proofpay/sdk";
+import type { ProofBundle, Tier } from "@nullius/sdk";
 
 type Tab = "prove" | "score" | "pay";
 
@@ -25,7 +25,7 @@ export default function App() {
         <div className="header-inner">
           <div className="logo">
             <span className="logo-mark">⬡</span>
-            <span className="logo-text">ProofPay</span>
+            <span className="logo-text">Nullius</span>
             <span className="logo-tag">ZK Reputation on Stellar</span>
           </div>
 
@@ -111,7 +111,7 @@ export default function App() {
 
       <footer className="footer">
         Built for Stellar Hacks: Real-World ZK · Open source ·{" "}
-        <a href="https://github.com/your-repo/proofpay" target="_blank" rel="noreferrer">
+        <a href="https://github.com/your-repo/nullius" target="_blank" rel="noreferrer">
           GitHub
         </a>
       </footer>
