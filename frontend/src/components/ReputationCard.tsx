@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { ProofPayClient, TIER_LABELS } from "@proofpay/sdk";
-import type { ProofBundle, Tier } from "@proofpay/sdk";
+import { NulliusClient, TIER_LABELS } from "@nullius/sdk";
+import type { ProofBundle, Tier } from "@nullius/sdk";
 
 interface Props {
   walletAddress: string;
@@ -27,7 +27,7 @@ export function ReputationCard({ walletAddress, latestProof, tier }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const client = new ProofPayClient();
+    const client = new NulliusClient();
     client.getTier(walletAddress)
       .then((t) => { setOnChainTier(t); setLoading(false); })
       .catch(() => { setOnChainTier(0); setLoading(false); });

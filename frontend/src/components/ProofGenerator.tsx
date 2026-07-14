@@ -3,9 +3,9 @@ import {
   generateReputationProof,
   verifyProofLocally,
   generateSalt,
-  ProofPayClient,
-} from "@proofpay/sdk";
-import type { PrivateInputs, ProofBundle, Tier } from "@proofpay/sdk";
+  NulliusClient,
+} from "@nullius/sdk";
+import type { PrivateInputs, ProofBundle, Tier } from "@nullius/sdk";
 import { Keypair } from "@stellar/stellar-sdk";
 
 interface Props {
@@ -50,7 +50,7 @@ export function ProofGenerator({ walletAddress, onProofVerified }: Props) {
       if (!valid) throw new Error("Local proof verification failed — this is a bug");
 
       setStep("submitting");
-      const client = new ProofPayClient();
+      const client = new NulliusClient();
       // For hackathon demo: derive keypair from wallet address seed
       // In production: use Freighter signTransaction flow
       const keypair = Keypair.random(); // TODO: replace with Freighter signer

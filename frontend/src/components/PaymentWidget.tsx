@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { ProofPayClient, TIER_LABELS } from "@proofpay/sdk";
-import type { Tier, PaymentQuote } from "@proofpay/sdk";
+import { NulliusClient, TIER_LABELS } from "@nullius/sdk";
+import type { Tier, PaymentQuote } from "@nullius/sdk";
 
 interface Props {
   walletAddress: string;
@@ -22,7 +22,7 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
     const timer = setTimeout(async () => {
       setQuoting(true);
       try {
-        const client = new ProofPayClient();
+      const client = new NulliusClient();
         const stroops = BigInt(Math.round(parseFloat(amount) * 10_000_000));
         const q = await client.getQuote(walletAddress, stroops);
         setQuote(q);
