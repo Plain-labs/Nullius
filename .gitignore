@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+target/
+build/
+
+# Circuit artifacts (generated — not source)
+circuits/build/
+circuits/keys/*.ptau
+circuits/keys/*.zkey
+circuits/keys/verification_key.json
+
+# Contract deploy artifacts
+.contract_addresses.json
+sdk/src/contract_ids.json
+
+# Environment
+.env
+.env.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
