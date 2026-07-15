@@ -8,33 +8,81 @@ import {
   SorobanRpc,
   scValToNative,
   nativeToScVal,
+  StrKey,
 } from "@stellar/stellar-sdk";
 import type { ProofBundle, PaymentQuote, Tier } from "./types";
 import { TIER_LABELS } from "./types";
 
 // ----------------------------------------------------------------
-// Utilities
+// Contract addresses — loaded from contract_ids.json after deploy,
+// or overridden by environment variables for flexibility.
 // ----------------------------------------------------------------
+function loadContractIds(): { groth16Verifier: string; reputationRegistry: string; paymentGate: string } {
+  // Allow environment override (useful in CI / e2e tests)
+  if (
+    typeof process !== "undefined" &&
+    process.env.GROTH16_VERIFIER_ID &&
+    process.env.REPUTATION_REGISTRY_ID &&
+    process.env.PAYMENT_GATE_ID
+  ) {
+    return {
+      groth16Verifier:    process.env.GROTH16_VERIFIER_ID,
+      reputationRegistry: process.env.REPUTATION_REGISTRY_ID,
+      paymentGate:        process.env.PAYMENT_GATE_ID,
+    };
+  }
 
-/**
- * Returns true if the string is a valid Stellar public key (StrKey G-address).
- * A valid address starts with 'G' and is exactly 56 base32 characters.
- */
-export function isValidStellarAddress(address: string): boolean {
-  return /^G[A-Z2-7]{55}$/.test(address);
+  // Try to import generated contract_ids.json (written by deploy.js)
+  try {
+    // Dynamic require works in Node/bundler contexts; Vite handles JSON imports natively
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const ids = require("./contract_ids.json");
+    return {
+      groth16Verifier:    ids.groth16Verifier,
+      reputationRegistry: ids.reputationRegistry,
+      paymentGate:        ids.paymentGate,
+    };
+  } catch {
+    // Contract IDs not yet available — return placeholder strings
+    return {
+      groth16Verifier:    "REPLACE_AFTER_DEPLOY",
+      reputationRegistry: "REPLACE_AFTER_DEPLOY",
+      paymentGate:        "REPLACE_AFTER_DEPLOY",
+    };
+  }
 }
 
-// ----------------------------------------------------------------
-// Contract addresses — replace after deploying to testnet
-// ----------------------------------------------------------------
-export const CONTRACT_IDS = {
-  groth16Verifier:      "REPLACE_AFTER_DEPLOY",
-  reputationRegistry:   "REPLACE_AFTER_DEPLOY",
-  paymentGate:          "REPLACE_AFTER_DEPLOY",
-} as const;
+export const CONTRACT_IDS = loadContractIds();
 
 const RPC_URL = "https://soroban-testnet.stellar.org";
 const NETWORK_PASSPHRASE = Networks.TESTNET;
+
+// ----------------------------------------------------------------
+// Input validation helpers
+// ----------------------------------------------------------------
+
+/** Validate a Stellar account address (G... public key). */
+export function isValidStellarAddress(address: string): boolean {
+  try {
+    return StrKey.isValidEd25519PublicKey(address);
+  } catch {
+    return false;
+  }
+}
+
+/** Throw if a Stellar address is invalid. */
+function requireValidAddress(address: string, label = "address"): void {
+  if (!isValidStellarAddress(address)) {
+    throw new Error(`Invalid Stellar ${label}: "${address.slice(0, 12)}…" — must be a valid G… public key`);
+  }
+}
+
+/** Throw if an amount is non-positive. */
+function requirePositiveAmount(amount: bigint, label = "amount"): void {
+  if (amount <= 0n) {
+    throw new Error(`${label} must be a positive number of stroops`);
+  }
+}
 
 /**
  * Encode a Groth16 proof point (G1 or G2) into bytes for Soroban.
@@ -83,6 +131,11 @@ export class NulliusClient {
     this.server = new SorobanRpc.Server(RPC_URL);
   }
 
+  /** Expose the underlying RPC server for direct use (e.g. in frontend transaction signing flows). */
+  getServer(): SorobanRpc.Server {
+    return this.server;
+  }
+
   /**
    * Submit a reputation proof to the registry contract.
    * Signs and submits the transaction using the provided keypair.
@@ -91,6 +144,7 @@ export class NulliusClient {
     keypair: Keypair,
     bundle: ProofBundle
   ): Promise<{ txHash: string; tier: Tier }> {
+    requireValidAddress(keypair.publicKey(), "submitter public key");
     const account = await this.server.getAccount(keypair.publicKey());
 
     const proofABytes  = encodeG1(bundle.proof.pi_a);
@@ -138,6 +192,7 @@ export class NulliusClient {
    * Fetch the current reputation tier for a wallet address.
    */
   async getTier(walletAddress: string): Promise<Tier> {
+    requireValidAddress(walletAddress, "wallet address");
     const contract = new Contract(CONTRACT_IDS.reputationRegistry);
     const account  = await this.server.getAccount(walletAddress);
 
@@ -169,6 +224,8 @@ export class NulliusClient {
     walletAddress: string,
     amountStroops: bigint
   ): Promise<PaymentQuote> {
+    requireValidAddress(walletAddress, "wallet address");
+    requirePositiveAmount(amountStroops, "amount");
     const contract = new Contract(CONTRACT_IDS.paymentGate);
     const account  = await this.server.getAccount(walletAddress);
 
@@ -229,6 +286,64 @@ export class NulliusClient {
           nativeToScVal(tokenContractId,   { type: "address" }),
           nativeToScVal(amountStroops,     { type: "i128" }),
           nativeToScVal(feeDestination,    { type: "address" }),
+        )
+      )
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.server.prepareTransaction(tx);
+    return prepared.toXDR();
+  }
+
+  private async waitForConfirmation(txHash: string, maxAttempts = 20): Promise<void> {
+    for (let i = 0; i < maxAttempts; i++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const status = await this.server.getTransaction(txHash);
+      if (status.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS) return;
+      if (status.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
+        throw new Error(`Transaction failed on-chain: ${txHash}`);
+      }
+    }
+    throw new Error("Transaction confirmation timeout");
+  }
+}
+
+  /**
+   * Build an unsigned send-payment transaction XDR for the caller to sign
+   * via Freighter. Returns the prepared (simulated + fee-bumped) transaction XDR.
+   *
+   * Usage:
+   *   const xdr = await client.buildSendTransaction(sender, recipient, tokenId, amount, feeCollector);
+   *   const signed = await signTransaction(xdr, { networkPassphrase: Networks.TESTNET });
+   *   await server.sendTransaction(TransactionBuilder.fromXDR(signed, Networks.TESTNET));
+   */
+  async buildSendTransaction(
+    sender: string,
+    recipient: string,
+    tokenId: string,
+    amountStroops: bigint,
+    feeCollector: string
+  ): Promise<string> {
+    requireValidAddress(sender,       "sender");
+    requireValidAddress(recipient,    "recipient");
+    requireValidAddress(feeCollector, "fee collector");
+    requirePositiveAmount(amountStroops, "payment amount");
+
+    const contract = new Contract(CONTRACT_IDS.paymentGate);
+    const account  = await this.server.getAccount(sender);
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: NETWORK_PASSPHRASE,
+    })
+      .addOperation(
+        contract.call(
+          "send",
+          nativeToScVal(sender,        { type: "address" }),
+          nativeToScVal(recipient,     { type: "address" }),
+          nativeToScVal(tokenId,       { type: "address" }),
+          nativeToScVal(amountStroops, { type: "i128" }),
+          nativeToScVal(feeCollector,  { type: "address" }),
         )
       )
       .setTimeout(30)
