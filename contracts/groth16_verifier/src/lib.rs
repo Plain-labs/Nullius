@@ -104,27 +104,77 @@ mod test {
     use super::*;
     use soroban_sdk::Env;
 
+    fn zero_g1(env: &Env) -> Bytes  { Bytes::from_slice(env, &[0u8; 64])  }
+    fn zero_g2(env: &Env) -> Bytes  { Bytes::from_slice(env, &[0u8; 128]) }
+    fn zero_s(env: &Env)  -> Bytes  { Bytes::from_slice(env, &[0u8; 32])  }
+    fn one_s(env: &Env)   -> Bytes  {
+        let mut b = [0u8; 32];
+        b[31] = 1;
+        Bytes::from_slice(env, &b)
+    }
+
     #[test]
-    fn test_verify_rejects_zero_proof() {
+    fn test_verify_rejects_zero_proof_meets_threshold_zero() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, Groth16Verifier);
-        let client = Groth16VerifierClient::new(&env, &contract_id);
+        let cid = env.register_contract(None, Groth16Verifier);
+        let client = Groth16VerifierClient::new(&env, &cid);
 
-        let zero_g1 = Bytes::from_slice(&env, &[0u8; 64]);
-        let zero_g2 = Bytes::from_slice(&env, &[0u8; 128]);
-        let zero_scalar = Bytes::from_slice(&env, &[0u8; 32]);
+        let mut inputs = Vec::new(&env);
+        inputs.push_back(zero_s(&env)); // threshold
+        inputs.push_back(zero_s(&env)); // commitment
+        inputs.push_back(zero_s(&env)); // meets_threshold = 0 → reject
 
-        let mut public_inputs = Vec::new(&env);
-        public_inputs.push_back(zero_scalar.clone()); // threshold
-        public_inputs.push_back(zero_scalar.clone()); // commitment
-        public_inputs.push_back(zero_scalar.clone()); // meets_threshold = 0, should fail
+        let result = client.verify(&zero_g1(&env), &zero_g2(&env), &zero_g1(&env), &inputs);
+        assert!(!result, "meets_threshold=0 must be rejected");
+    }
 
-        let result = client.verify(
-            &zero_g1.clone(),
-            &zero_g2.clone(),
-            &zero_g1.clone(),
-            &public_inputs,
-        );
-        assert!(!result, "Zero proof with meets_threshold=0 should be rejected");
+    #[test]
+    fn test_verify_rejects_when_meets_threshold_is_not_one() {
+        let env = Env::default();
+        let cid = env.register_contract(None, Groth16Verifier);
+        let client = Groth16VerifierClient::new(&env, &cid);
+
+        // meets_threshold = 2 (not exactly 1)
+        let mut two_bytes = [0u8; 32];
+        two_bytes[31] = 2;
+        let two = Bytes::from_slice(&env, &two_bytes);
+
+        let mut inputs = Vec::new(&env);
+        inputs.push_back(zero_s(&env)); // threshold
+        inputs.push_back(zero_s(&env)); // commitment
+        inputs.push_back(two);          // meets_threshold = 2 → reject
+
+        let result = client.verify(&zero_g1(&env), &zero_g2(&env), &zero_g1(&env), &inputs);
+        assert!(!result, "meets_threshold != 1 must be rejected");
+    }
+
+    #[test]
+    fn test_verify_rejects_all_zero_even_with_meets_threshold_one() {
+        // meets_threshold=1 but pairing check on zero proof will fail
+        let env = Env::default();
+        let cid = env.register_contract(None, Groth16Verifier);
+        let client = Groth16VerifierClient::new(&env, &cid);
+
+        let mut inputs = Vec::new(&env);
+        inputs.push_back(zero_s(&env)); // threshold
+        inputs.push_back(zero_s(&env)); // commitment
+        inputs.push_back(one_s(&env));  // meets_threshold = 1
+
+        // Zero proof bytes fail the pairing check
+        let result = client.verify(&zero_g1(&env), &zero_g2(&env), &zero_g1(&env), &inputs);
+        assert!(!result, "Zero proof with placeholder VK must fail pairing check");
+    }
+
+    #[test]
+    fn test_public_inputs_field_element_one_encoding() {
+        // Verify that the "one" field element encoding used in the contract is correct:
+        // 32-byte big-endian representation of scalar 1
+        let env = Env::default();
+        let one = one_s(&env);
+        let bytes = one.to_array::<32>().unwrap_or([0u8; 32]);
+        assert_eq!(bytes[31], 1, "LSB should be 1");
+        for i in 0..31 {
+            assert_eq!(bytes[i], 0, "All high bytes should be zero");
+        }
     }
 }

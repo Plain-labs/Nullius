@@ -115,3 +115,170 @@ impl ReputationRegistry {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::{testutils::Address as _, Address, Env};
+
+    // ----------------------------------------------------------------
+    // Tier constant sanity checks
+    // ----------------------------------------------------------------
+
+    #[test]
+    fn tier_constants_ordered() {
+        assert!(TIER_UNVERIFIED < TIER_BRONZE);
+        assert!(TIER_BRONZE     < TIER_SILVER);
+        assert!(TIER_SILVER     < TIER_GOLD);
+    }
+
+    #[test]
+    fn tier_constants_values() {
+        assert_eq!(TIER_UNVERIFIED, 0);
+        assert_eq!(TIER_BRONZE,     1);
+        assert_eq!(TIER_SILVER,     2);
+        assert_eq!(TIER_GOLD,       3);
+    }
+
+    // ----------------------------------------------------------------
+    // initialize / double-initialize
+    // ----------------------------------------------------------------
+
+    #[test]
+    #[should_panic(expected = "Already initialized")]
+    fn double_initialize_panics() {
+        let env = Env::default();
+        let cid = env.register_contract(None, ReputationRegistry);
+        let client = ReputationRegistryClient::new(&env, &cid);
+
+        let verifier = Address::generate(&env);
+        client.initialize(&verifier);
+        client.initialize(&verifier); // must panic
+    }
+
+    // ----------------------------------------------------------------
+    // get_tier default (no proof submitted)
+    // ----------------------------------------------------------------
+
+    #[test]
+    fn get_tier_returns_unverified_by_default() {
+        let env = Env::default();
+        let cid = env.register_contract(None, ReputationRegistry);
+        let client = ReputationRegistryClient::new(&env, &cid);
+
+        let verifier = Address::generate(&env);
+        client.initialize(&verifier);
+
+        let wallet = Address::generate(&env);
+        let tier = client.get_tier(&wallet);
+        assert_eq!(tier, TIER_UNVERIFIED);
+    }
+
+    // ----------------------------------------------------------------
+    // tier_name correctness
+    // ----------------------------------------------------------------
+
+    #[test]
+    fn tier_name_gold() {
+        let env = Env::default();
+        let cid = env.register_contract(None, ReputationRegistry);
+        let client = ReputationRegistryClient::new(&env, &cid);
+
+        let verifier = Address::generate(&env);
+        client.initialize(&verifier);
+
+        let name = client.tier_name(&TIER_GOLD);
+        assert_eq!(name, soroban_sdk::String::from_str(&env, "Gold"));
+    }
+
+    #[test]
+    fn tier_name_silver() {
+        let env = Env::default();
+        let cid = env.register_contract(None, ReputationRegistry);
+        let client = ReputationRegistryClient::new(&env, &cid);
+
+        let verifier = Address::generate(&env);
+        client.initialize(&verifier);
+
+        let name = client.tier_name(&TIER_SILVER);
+        assert_eq!(name, soroban_sdk::String::from_str(&env, "Silver"));
+    }
+
+    #[test]
+    fn tier_name_bronze() {
+        let env = Env::default();
+        let cid = env.register_contract(None, ReputationRegistry);
+        let client = ReputationRegistryClient::new(&env, &cid);
+
+        let verifier = Address::generate(&env);
+        client.initialize(&verifier);
+
+        let name = client.tier_name(&TIER_BRONZE);
+        assert_eq!(name, soroban_sdk::String::from_str(&env, "Bronze"));
+    }
+
+    #[test]
+    fn tier_name_unverified() {
+        let env = Env::default();
+        let cid = env.register_contract(None, ReputationRegistry);
+        let client = ReputationRegistryClient::new(&env, &cid);
+
+        let verifier = Address::generate(&env);
+        client.initialize(&verifier);
+
+        let name = client.tier_name(&TIER_UNVERIFIED);
+        assert_eq!(name, soroban_sdk::String::from_str(&env, "Unverified"));
+    }
+
+    #[test]
+    fn tier_name_unknown_value() {
+        let env = Env::default();
+        let cid = env.register_contract(None, ReputationRegistry);
+        let client = ReputationRegistryClient::new(&env, &cid);
+
+        let verifier = Address::generate(&env);
+        client.initialize(&verifier);
+
+        // Any value other than 1/2/3 should return "Unverified"
+        let name = client.tier_name(&99u32);
+        assert_eq!(name, soroban_sdk::String::from_str(&env, "Unverified"));
+    }
+
+    // ----------------------------------------------------------------
+    // Threshold → tier mapping logic (tested through score boundary values)
+    // ----------------------------------------------------------------
+
+    /// Verify that threshold 39 would be rejected (below Bronze minimum).
+    /// We test this by calling submit_proof with a dummy verifier; the panic
+    /// happens BEFORE calling the verifier when threshold < 40.
+    #[test]
+    #[should_panic(expected = "Threshold too low")]
+    fn submit_proof_rejects_threshold_below_40() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        // Register a mock verifier that always returns true
+        // We use the same registry contract as a stand-in (it has no "verify" fn,
+        // but the threshold check happens first so it will never reach the call)
+        let cid = env.register_contract(None, ReputationRegistry);
+        let client = ReputationRegistryClient::new(&env, &cid);
+
+        let dummy_verifier = Address::generate(&env);
+        client.initialize(&dummy_verifier);
+
+        let wallet  = Address::generate(&env);
+        let zero32  = soroban_sdk::Bytes::from_slice(&env, &[0u8; 32]);
+        let zero64  = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]);
+        let zero128 = soroban_sdk::Bytes::from_slice(&env, &[0u8; 128]);
+
+        // threshold=39 must panic with "Threshold too low"
+        client.submit_proof(
+            &wallet,
+            &39u32,
+            &zero64,
+            &zero128,
+            &zero64,
+            &zero32,
+        );
+    }
+}
