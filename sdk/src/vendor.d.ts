@@ -1,11 +1,14 @@
 // Type shims for packages and globals not covered by the SDK's tsconfig.
 
-// Node globals used in contracts.ts for env-based config loading
-declare const process: {
-  env: Record<string, string | undefined>;
-  browser?: boolean;
-};
-declare function require(module: string): any;
+// Vite's ImportMeta augmentation (import.meta.env)
+interface ImportMeta {
+  readonly env: Record<string, string | undefined>;
+}
+
+// Vite build-time defines injected when bundling without env vars
+declare const __GROTH16_VERIFIER_ID__: string | undefined;
+declare const __REPUTATION_REGISTRY_ID__: string | undefined;
+declare const __PAYMENT_GATE_ID__: string | undefined;
 
 declare module "snarkjs" {
   export const groth16: {

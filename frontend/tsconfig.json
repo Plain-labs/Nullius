@@ -11,10 +11,11 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
+    "typeRoots": ["../sdk/types", "./node_modules/@types"],
     "paths": {
       "@nullius/sdk": ["../sdk/src/index.ts"]
     }
   },
-  "include": ["src"],
+  "include": ["src", "../sdk/src/vendor.d.ts"],
   "exclude": ["node_modules", "../sdk/node_modules"]
 }

@@ -14,42 +14,38 @@ import type { ProofBundle, PaymentQuote, Tier } from "./types";
 import { TIER_LABELS } from "./types";
 
 // ----------------------------------------------------------------
-// Contract addresses — loaded from contract_ids.json after deploy,
-// or overridden by environment variables for flexibility.
+// Contract addresses — overridden by VITE_ env vars when available,
+// otherwise fall back to contract_ids.json (bundled after deploy).
 // ----------------------------------------------------------------
 function loadContractIds(): {
   groth16Verifier: string;
   reputationRegistry: string;
   paymentGate: string;
 } {
+  // Vite exposes env vars via import.meta.env (browser-safe)
+  const env = (typeof import.meta !== "undefined" && import.meta.env) as
+    | Record<string, string | undefined>
+    | false;
+
   if (
-    typeof process !== "undefined" &&
-    process.env.GROTH16_VERIFIER_ID &&
-    process.env.REPUTATION_REGISTRY_ID &&
-    process.env.PAYMENT_GATE_ID
+    env &&
+    env["VITE_GROTH16_VERIFIER_ID"] &&
+    env["VITE_REPUTATION_REGISTRY_ID"] &&
+    env["VITE_PAYMENT_GATE_ID"]
   ) {
     return {
-      groth16Verifier:    process.env.GROTH16_VERIFIER_ID,
-      reputationRegistry: process.env.REPUTATION_REGISTRY_ID,
-      paymentGate:        process.env.PAYMENT_GATE_ID,
+      groth16Verifier:    env["VITE_GROTH16_VERIFIER_ID"]!,
+      reputationRegistry: env["VITE_REPUTATION_REGISTRY_ID"]!,
+      paymentGate:        env["VITE_PAYMENT_GATE_ID"]!,
     };
   }
 
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const ids = require("./contract_ids.json");
-    return {
-      groth16Verifier:    ids.groth16Verifier,
-      reputationRegistry: ids.reputationRegistry,
-      paymentGate:        ids.paymentGate,
-    };
-  } catch {
-    return {
-      groth16Verifier:    "REPLACE_AFTER_DEPLOY",
-      reputationRegistry: "REPLACE_AFTER_DEPLOY",
-      paymentGate:        "REPLACE_AFTER_DEPLOY",
-    };
-  }
+  // Fallback: ids injected at build time via define or left as placeholder
+  return {
+    groth16Verifier:    (typeof __GROTH16_VERIFIER_ID__ !== "undefined" ? __GROTH16_VERIFIER_ID__ : "REPLACE_AFTER_DEPLOY"),
+    reputationRegistry: (typeof __REPUTATION_REGISTRY_ID__ !== "undefined" ? __REPUTATION_REGISTRY_ID__ : "REPLACE_AFTER_DEPLOY"),
+    paymentGate:        (typeof __PAYMENT_GATE_ID__ !== "undefined" ? __PAYMENT_GATE_ID__ : "REPLACE_AFTER_DEPLOY"),
+  };
 }
 
 export const CONTRACT_IDS = loadContractIds();
@@ -160,10 +156,10 @@ export class NulliusClient {
           "submit_proof",
           nativeToScVal(keypair.publicKey(), { type: "address" }),
           nativeToScVal(bundle.threshold,    { type: "u32" }),
-          xdr.ScVal.scvBytes(Buffer.from(proofABytes)),
-          xdr.ScVal.scvBytes(Buffer.from(proofBBytes)),
-          xdr.ScVal.scvBytes(Buffer.from(proofCBytes)),
-          xdr.ScVal.scvBytes(Buffer.from(commitment)),
+          xdr.ScVal.scvBytes(proofABytes),
+          xdr.ScVal.scvBytes(proofBBytes),
+          xdr.ScVal.scvBytes(proofCBytes),
+          xdr.ScVal.scvBytes(commitment),
         )
       )
       .setTimeout(30)
