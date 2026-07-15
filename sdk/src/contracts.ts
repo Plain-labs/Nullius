@@ -156,10 +156,10 @@ export class NulliusClient {
           "submit_proof",
           nativeToScVal(keypair.publicKey(), { type: "address" }),
           nativeToScVal(bundle.threshold,    { type: "u32" }),
-          xdr.ScVal.scvBytes(proofABytes),
-          xdr.ScVal.scvBytes(proofBBytes),
-          xdr.ScVal.scvBytes(proofCBytes),
-          xdr.ScVal.scvBytes(commitment),
+          xdr.ScVal.scvBytes(proofABytes as unknown as Buffer),
+          xdr.ScVal.scvBytes(proofBBytes as unknown as Buffer),
+          xdr.ScVal.scvBytes(proofCBytes as unknown as Buffer),
+          xdr.ScVal.scvBytes(commitment as unknown as Buffer),
         )
       )
       .setTimeout(30)

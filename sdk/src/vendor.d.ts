@@ -5,6 +5,12 @@ interface ImportMeta {
   readonly env: Record<string, string | undefined>;
 }
 
+// Minimal Buffer type alias so Uint8Array can satisfy stellar-base's
+// scvBytes(value: Buffer) signature without pulling in @types/node.
+// At runtime Uint8Array is passed directly — Buffer extends Uint8Array
+// so no copy or conversion is needed.
+declare class Buffer extends Uint8Array {}
+
 // Vite build-time defines injected when bundling without env vars
 declare const __GROTH16_VERIFIER_ID__: string | undefined;
 declare const __REPUTATION_REGISTRY_ID__: string | undefined;

@@ -124,10 +124,10 @@ export function ProofGenerator({ walletAddress, onProofVerified }: Props) {
             "submit_proof",
             nativeToScVal(walletAddress,        { type: "address" }),
             nativeToScVal(bundle.threshold,     { type: "u32" }),
-            xdr.ScVal.scvBytes(proofABytes),
-            xdr.ScVal.scvBytes(proofBBytes),
-            xdr.ScVal.scvBytes(proofCBytes),
-            xdr.ScVal.scvBytes(commitmentBytes),
+            xdr.ScVal.scvBytes(proofABytes as unknown as Buffer),
+            xdr.ScVal.scvBytes(proofBBytes as unknown as Buffer),
+            xdr.ScVal.scvBytes(proofCBytes as unknown as Buffer),
+            xdr.ScVal.scvBytes(commitmentBytes as unknown as Buffer),
           )
         )
         .setTimeout(30)
