@@ -134,9 +134,11 @@ export function ProofGenerator({ walletAddress, onProofVerified }: Props) {
         .build();
 
       const prepared  = await server.prepareTransaction(tx);
-      const { signedTxXdr } = await signTransaction(prepared.toXDR(), {
+      const signResult = await signTransaction(prepared.toXDR(), {
         networkPassphrase: Networks.TESTNET,
       });
+      // freighter-api v2 returns string directly; v1 returned { signedTxXdr }
+      const signedTxXdr = typeof signResult === "string" ? signResult : (signResult as any).signedTxXdr;
       const result = await server.sendTransaction(
         TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
       );

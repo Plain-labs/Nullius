@@ -72,9 +72,11 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
         walletAddress // fee goes back to sender in demo; replace with treasury address
       );
 
-      const { signedTxXdr } = await signTransaction(unsignedXdr, {
+      const signResult = await signTransaction(unsignedXdr, {
         networkPassphrase: Networks.TESTNET,
       });
+      // freighter-api v2 returns string directly; v1 returned { signedTxXdr }
+      const signedTxXdr = typeof signResult === "string" ? signResult : (signResult as any).signedTxXdr;
 
       const server = client.getServer();
       const result = await server.sendTransaction(
