@@ -4,10 +4,12 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ES2020", "DOM"],
+    "typeRoots": ["./types", "./node_modules/@types"],
     "declaration": true,
     "outDir": "dist",
     "strict": true,
+    "skipLibCheck": true,
     "esModuleInterop": true
   },
-  "include": ["src"]
+  "include": ["src", "types"]
 }
