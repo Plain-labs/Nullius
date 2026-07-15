@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NulliusClient, TIER_LABELS } from "@nullius/sdk";
 import type { ProofBundle, Tier } from "@nullius/sdk";
+import { ProofHistory } from "./ProofHistory";
 
 interface Props {
   walletAddress: string;
@@ -85,6 +86,10 @@ export function ReputationCard({ walletAddress, latestProof, tier }: Props) {
               No verified reputation yet. Go to "Generate Proof" to submit your first ZK proof.
             </p>
           )}
+
+          <div style={{ marginTop: 24 }}>
+            <ProofHistory />
+          </div>
         </>
       )}
     </div>

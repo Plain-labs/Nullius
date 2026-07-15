@@ -1,6 +1,16 @@
 import { useState, useEffect } from "react";
-import { NulliusClient, TIER_LABELS } from "@nullius/sdk";
+import {
+  NulliusClient,
+  TIER_LABELS,
+  isValidStellarAddress,
+  CONTRACT_IDS,
+} from "@nullius/sdk";
 import type { Tier, PaymentQuote } from "@nullius/sdk";
+import {
+  Networks,
+  TransactionBuilder,
+} from "@stellar/stellar-sdk";
+import { signTransaction } from "@stellar/freighter-api";
 
 interface Props {
   walletAddress: string;
@@ -16,9 +26,16 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
   const [txHash, setTxHash]           = useState<string | null>(null);
   const [error, setError]             = useState<string | null>(null);
 
+  const recipientValid = recipient === "" || isValidStellarAddress(recipient);
+  const amountNum = parseFloat(amount);
+  const amountValid = !amount || (amountNum > 0 && isFinite(amountNum));
+
   // Debounced quote fetch
   useEffect(() => {
-    if (!amount || parseFloat(amount) <= 0) { setQuote(null); return; }
+    if (!amount || parseFloat(amount) <= 0 || !isValidStellarAddress(recipient)) {
+      setQuote(null);
+      return;
+    }
     const timer = setTimeout(async () => {
       setQuoting(true);
       try {
@@ -36,16 +53,41 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
   }, [amount, walletAddress]);
 
   const handleSend = async () => {
-    if (!quote || !recipient || !amount) return;
+    if (!quote || !recipient || !amount || !recipientValid) return;
     setSending(true);
     setError(null);
     try {
-      // TODO: integrate Freighter signTransaction
-      // For demo: show the tx would be constructed
-      await new Promise((r) => setTimeout(r, 1500));
-      setTxHash("DEMO_TX_" + Math.random().toString(36).slice(2, 10).toUpperCase());
-    } catch (e: any) {
-      setError(e.message);
+      const client = new NulliusClient();
+      const stroops = BigInt(Math.round(parseFloat(amount) * 10_000_000));
+
+      // Native XLM token address on Stellar testnet
+      const NATIVE_TOKEN = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+
+      // Build tx → sign via Freighter → submit
+      const unsignedXdr = await client.buildSendTransaction(
+        walletAddress,
+        recipient,
+        NATIVE_TOKEN,
+        stroops,
+        walletAddress // fee goes back to sender in demo; replace with treasury address
+      );
+
+      const { signedTxXdr } = await signTransaction(unsignedXdr, {
+        networkPassphrase: Networks.TESTNET,
+      });
+
+      const server = client.getServer();
+      const result = await server.sendTransaction(
+        TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
+      );
+
+      if (result.status !== "PENDING") {
+        throw new Error(`Transaction rejected by network: ${result.status}`);
+      }
+
+      setTxHash(result.hash);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "An unknown error occurred");
     } finally {
       setSending(false);
     }
@@ -67,7 +109,15 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
             placeholder="G..."
+            style={recipient && !recipientValid ? { borderColor: "var(--error)" } : {}}
+            aria-invalid={recipient !== "" && !recipientValid}
+            aria-describedby={recipient && !recipientValid ? "recipient-error" : undefined}
           />
+          {recipient && !recipientValid && (
+            <span id="recipient-error" style={{ color: "var(--error)", fontSize: 12 }}>
+              Must be a valid Stellar address starting with G
+            </span>
+          )}
         </div>
         <div className="field">
           <label>Amount (XLM)</label>
@@ -77,7 +127,14 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="e.g. 500"
+            style={amount && !amountValid ? { borderColor: "var(--error)" } : {}}
+            aria-invalid={amount !== "" && !amountValid}
           />
+          {amount && !amountValid && (
+            <span style={{ color: "var(--error)", fontSize: 12 }}>
+              Amount must be a positive number
+            </span>
+          )}
         </div>
       </div>
 
@@ -106,13 +163,20 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
 
       {txHash ? (
         <div className="success-box">
-          ✓ Payment sent! Tx: <code>{txHash}</code>
+          ✓ Payment sent!{" "}
+          <a
+            href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View on Stellar Expert →
+          </a>
         </div>
       ) : (
         <button
           className="btn-primary btn-full"
           onClick={handleSend}
-          disabled={!quote || !recipient || sending}
+          disabled={!quote || !recipient || !recipientValid || sending}
         >
           {sending ? "Sending…" : "Send Payment"}
         </button>

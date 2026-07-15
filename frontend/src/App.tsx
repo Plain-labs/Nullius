@@ -3,12 +3,13 @@ import { useFreighter } from "./hooks/useFreighter";
 import { ProofGenerator } from "./components/ProofGenerator";
 import { ReputationCard } from "./components/ReputationCard";
 import { PaymentWidget } from "./components/PaymentWidget";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import type { ProofBundle, Tier } from "@nullius/sdk";
 
 type Tab = "prove" | "score" | "pay";
 
 export default function App() {
-  const { connected, publicKey, loading, connect } = useFreighter();
+  const { connected, publicKey, loading, error: walletError, connect } = useFreighter();
   const [activeTab, setActiveTab] = useState<Tab>("prove");
   const [latestProof, setLatestProof]   = useState<ProofBundle | null>(null);
   const [verifiedTier, setVerifiedTier] = useState<Tier>(0);
@@ -59,6 +60,11 @@ export default function App() {
             <button className="btn-primary btn-lg" onClick={connect}>
               Connect Freighter Wallet
             </button>
+            {walletError && (
+              <div className="error-box" style={{ marginTop: 16, textAlign: "left" }}>
+                {walletError}
+              </div>
+            )}
             <p className="connect-hint">
               Don't have Freighter?{" "}
               <a href="https://freighter.app" target="_blank" rel="noreferrer">
@@ -83,27 +89,33 @@ export default function App() {
 
           <div className="tab-content">
             {activeTab === "prove" && (
-              <ProofGenerator
-                walletAddress={publicKey!}
-                onProofVerified={(bundle, tier) => {
-                  setLatestProof(bundle);
-                  setVerifiedTier(tier);
-                  setActiveTab("score");
-                }}
-              />
+              <ErrorBoundary>
+                <ProofGenerator
+                  walletAddress={publicKey!}
+                  onProofVerified={(bundle, tier) => {
+                    setLatestProof(bundle);
+                    setVerifiedTier(tier);
+                    setActiveTab("score");
+                  }}
+                />
+              </ErrorBoundary>
             )}
             {activeTab === "score" && (
-              <ReputationCard
-                walletAddress={publicKey!}
-                latestProof={latestProof}
-                tier={verifiedTier}
-              />
+              <ErrorBoundary>
+                <ReputationCard
+                  walletAddress={publicKey!}
+                  latestProof={latestProof}
+                  tier={verifiedTier}
+                />
+              </ErrorBoundary>
             )}
             {activeTab === "pay" && (
-              <PaymentWidget
-                walletAddress={publicKey!}
-                currentTier={verifiedTier}
-              />
+              <ErrorBoundary>
+                <PaymentWidget
+                  walletAddress={publicKey!}
+                  currentTier={verifiedTier}
+                />
+              </ErrorBoundary>
             )}
           </div>
         </main>
