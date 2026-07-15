@@ -13,6 +13,18 @@ import type { ProofBundle, PaymentQuote, Tier } from "./types";
 import { TIER_LABELS } from "./types";
 
 // ----------------------------------------------------------------
+// Utilities
+// ----------------------------------------------------------------
+
+/**
+ * Returns true if the string is a valid Stellar public key (StrKey G-address).
+ * A valid address starts with 'G' and is exactly 56 base32 characters.
+ */
+export function isValidStellarAddress(address: string): boolean {
+  return /^G[A-Z2-7]{55}$/.test(address);
+}
+
+// ----------------------------------------------------------------
 // Contract addresses — replace after deploying to testnet
 // ----------------------------------------------------------------
 export const CONTRACT_IDS = {
@@ -187,6 +199,43 @@ export class NulliusClient {
       };
     }
     throw new Error("Failed to get quote");
+  }
+
+  /** Expose the underlying RPC server instance for direct use (e.g., sendTransaction). */
+  getServer(): SorobanRpc.Server {
+    return this.server;
+  }
+
+  /** Build an unsigned XDR transaction for a token transfer. Returns the XDR string. */
+  async buildSendTransaction(
+    senderAddress: string,
+    recipientAddress: string,
+    tokenContractId: string,
+    amountStroops: bigint,
+    feeDestination: string
+  ): Promise<string> {
+    const account  = await this.server.getAccount(senderAddress);
+    const contract = new Contract(CONTRACT_IDS.paymentGate);
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: NETWORK_PASSPHRASE,
+    })
+      .addOperation(
+        contract.call(
+          "send",
+          nativeToScVal(senderAddress,     { type: "address" }),
+          nativeToScVal(recipientAddress,  { type: "address" }),
+          nativeToScVal(tokenContractId,   { type: "address" }),
+          nativeToScVal(amountStroops,     { type: "i128" }),
+          nativeToScVal(feeDestination,    { type: "address" }),
+        )
+      )
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.server.prepareTransaction(tx);
+    return prepared.toXDR();
   }
 
   private async waitForConfirmation(txHash: string, maxAttempts = 20): Promise<void> {
