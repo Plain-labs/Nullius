@@ -1,4 +1,11 @@
-// Type shims for packages that ship no TypeScript declarations.
+// Type shims for packages and globals not covered by the SDK's tsconfig.
+
+// Node globals used in contracts.ts for env-based config loading
+declare const process: {
+  env: Record<string, string | undefined>;
+  browser?: boolean;
+};
+declare function require(module: string): any;
 
 declare module "snarkjs" {
   export const groth16: {
