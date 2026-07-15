@@ -1,5 +1,3 @@
-import * as snarkjs from "snarkjs";
-import { buildPoseidon } from "circomlibjs";
 import type {
   PrivateInputs,
   Groth16Proof,
@@ -29,6 +27,7 @@ export function generateSalt(): string {
  * without revealing anything about the underlying data.
  */
 async function computeCommitment(inputs: PrivateInputs): Promise<string> {
+  const { buildPoseidon } = await import("circomlibjs");
   const poseidon = await buildPoseidon();
   const hash = poseidon([
     BigInt(inputs.txCount),
@@ -93,6 +92,7 @@ export async function generateReputationProof(
   };
 
   console.log("[Nullius] Generating Groth16 proof (this may take 5–15s)...");
+  const snarkjs = await import("snarkjs");
   const { proof, publicSignals } = await snarkjs.groth16.fullProve(
     circuitInputs,
     WASM_PATH,
@@ -122,6 +122,7 @@ export async function generateReputationProof(
  * Useful for fast client-side sanity check.
  */
 export async function verifyProofLocally(bundle: ProofBundle): Promise<boolean> {
+  const snarkjs = await import("snarkjs");
   const vkeyRes = await fetch("/circuits/keys/verification_key.json");
   const vkey = await vkeyRes.json();
   return snarkjs.groth16.verify(
