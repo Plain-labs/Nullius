@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="8" fill="#161b27"/>
+  <!-- Hexagon (⬡) centered -->
+  <polygon
+    points="16,3 27,9 27,23 16,29 5,23 5,9"
+    fill="none"
+    stroke="#6366f1"
+    stroke-width="2.5"
+    stroke-linejoin="round"
+  />
+  <!-- Inner N letter mark -->
+  <text
+    x="16"
+    y="21"
+    text-anchor="middle"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+    font-size="13"
+    font-weight="800"
+    fill="#818cf8"
+  >N</text>
+</svg>

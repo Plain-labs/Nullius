@@ -9,16 +9,19 @@ export default defineConfig({
       "@nullius/sdk": path.resolve(__dirname, "../sdk/src/index.ts"),
     },
   },
-  // snarkjs uses Node built-ins — polyfill for browser
-  define: { "process.env": {} },
+  // Polyfill Node globals used by snarkjs/circomlibjs at runtime
+  define: {
+    "process.env": "{}",
+    "process.browser": "true",
+    global: "globalThis",
+  },
   optimizeDeps: {
-    exclude: ["snarkjs"],
+    // Let Vite pre-bundle these so they work cleanly in the browser
+    include: ["snarkjs", "circomlibjs"],
   },
   server: {
     headers: {
-      // Required for SharedArrayBuffer (used by snarkjs WASM)
       "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "require-corp",
     },
   },
   build: {

@@ -258,6 +258,43 @@ export class NulliusClient {
     throw new Error("Failed to get quote");
   }
 
+  /** Expose the underlying RPC server instance for direct use (e.g., sendTransaction). */
+  getServer(): SorobanRpc.Server {
+    return this.server;
+  }
+
+  /** Build an unsigned XDR transaction for a token transfer. Returns the XDR string. */
+  async buildSendTransaction(
+    senderAddress: string,
+    recipientAddress: string,
+    tokenContractId: string,
+    amountStroops: bigint,
+    feeDestination: string
+  ): Promise<string> {
+    const account  = await this.server.getAccount(senderAddress);
+    const contract = new Contract(CONTRACT_IDS.paymentGate);
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: NETWORK_PASSPHRASE,
+    })
+      .addOperation(
+        contract.call(
+          "send",
+          nativeToScVal(senderAddress,     { type: "address" }),
+          nativeToScVal(recipientAddress,  { type: "address" }),
+          nativeToScVal(tokenContractId,   { type: "address" }),
+          nativeToScVal(amountStroops,     { type: "i128" }),
+          nativeToScVal(feeDestination,    { type: "address" }),
+        )
+      )
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.server.prepareTransaction(tx);
+    return prepared.toXDR();
+  }
+
   private async waitForConfirmation(txHash: string, maxAttempts = 20): Promise<void> {
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise((r) => setTimeout(r, 1500));
