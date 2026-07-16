@@ -1,7 +1,7 @@
 pragma circom 2.0.0;
 
-include "node_modules/circomlib/circuits/comparators.circom";
-include "node_modules/circomlib/circuits/poseidon.circom";
+include "circomlib/circuits/comparators.circom";
+include "circomlib/circuits/poseidon.circom";
 
 /*
  * ReputationScore circuit
