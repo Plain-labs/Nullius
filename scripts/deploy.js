@@ -25,7 +25,7 @@ const path         = require("path");
 
 const NETWORK     = "testnet";
 const SOURCE      = "deployer";
-const WASM_DIR    = path.join(__dirname, "../target/wasm32-unknown-unknown/release");
+const WASM_DIR    = path.join(__dirname, "../target/wasm32v1-none/release");
 const SDK_OUT     = path.join(__dirname, "../sdk/src/contract_ids.json");
 const CONTRACTS_OUT = path.join(__dirname, "../.contract_addresses.json");
 
@@ -67,7 +67,7 @@ function deployContract(name, wasmFile) {
 }
 
 function invokeContract(contractId, fn, args, label) {
-  const argStr = args.map(([k, v]) => `--arg-name ${k} --arg ${v}`).join(" ");
+  const argStr = args.map(([k, v]) => `--${k} ${v}`).join(" ");
   return run(
     `stellar contract invoke \
       --id ${contractId} \
