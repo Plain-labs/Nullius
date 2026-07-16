@@ -1,7 +1,10 @@
 {
   "name": "nullius",
   "private": true,
-  "workspaces": ["sdk", "frontend"],
+  "workspaces": [
+    "sdk",
+    "frontend"
+  ],
   "scripts": {
     "dev": "npm run dev --workspace=frontend",
     "build:sdk": "npm run build --workspace=sdk",
@@ -11,10 +14,13 @@
     "vk:extract": "node scripts/extract_vk.js",
     "vk:patch": "node scripts/patch_verifier.js",
     "vk:all": "npm run vk:extract && npm run vk:patch",
-    "contracts:build": "cargo build --release --target wasm32-unknown-unknown",
+    "contracts:build": "cargo build --release --target wasm32v1-none",
     "contracts:test": "cargo test",
     "deploy:testnet": "node scripts/deploy.js",
     "test:e2e": "node scripts/e2e_test.js",
     "setup:all": "npm install && npm run circuit:compile && npm run circuit:setup && npm run vk:all && npm run contracts:build && npm run deploy:testnet"
+  },
+  "dependencies": {
+    "circomlib": "^2.0.5"
   }
 }
