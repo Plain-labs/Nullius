@@ -1,6 +1,6 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractimpl, symbol_short, token, Address, Env, Symbol,
+    contract, contractimpl, symbol_short, token, Address, Env, IntoVal, Symbol,
 };
 
 const REGISTRY_KEY: Symbol = symbol_short!("REGISTRY");
@@ -51,7 +51,7 @@ impl PaymentGate {
         let tier: u32 = env.invoke_contract(
             &registry,
             &symbol_short!("get_tier"),
-            soroban_sdk::vec![&env, sender.clone().into()],
+            soroban_sdk::vec![&env, sender.clone().into_val(&env)],
         );
 
         if amount <= 0 { panic!("Amount must be positive"); }
@@ -77,7 +77,7 @@ impl PaymentGate {
         let tier: u32 = env.invoke_contract(
             &registry,
             &symbol_short!("get_tier"),
-            soroban_sdk::vec![&env, wallet.into()],
+            soroban_sdk::vec![&env, wallet.into_val(&env)],
         );
         let fee = amount * fee_bps(tier) / 10_000;
         (fee, amount - fee, tier)
@@ -89,7 +89,7 @@ impl PaymentGate {
         let tier: u32 = env.invoke_contract(
             &registry,
             &symbol_short!("get_tier"),
-            soroban_sdk::vec![&env, wallet.into()],
+            soroban_sdk::vec![&env, wallet.into_val(&env)],
         );
         max_payment(tier)
     }
