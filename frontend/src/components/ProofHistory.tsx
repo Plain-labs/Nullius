@@ -34,10 +34,10 @@ export function recordProof(tier: Tier, threshold: number, commitment: string): 
 }
 
 const TIER_COLORS: Record<Tier, string> = {
-  0: "#64748b",
-  1: "#b45309",
-  2: "#6b7280",
-  3: "#d97706",
+  0: "#64748b", // Unverified — slate
+  1: "#b45309", // Bronze — amber-brown
+  2: "#94a3b8", // Silver — silver-slate
+  3: "#d97706", // Gold — amber
 };
 
 /**
