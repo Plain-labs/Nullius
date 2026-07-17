@@ -81,40 +81,48 @@ function requirePositiveAmount(amount: bigint, label = "amount"): void {
 }
 
 // ----------------------------------------------------------------
-// Proof encoding helpers
+// Proof encoding helpers (exported for use by frontend and scripts)
 // ----------------------------------------------------------------
 
-function encodeG1(point: [string, string, string]): Uint8Array {
-  const buf = new Uint8Array(64);
-  const x = BigInt(point[0]);
-  const y = BigInt(point[1]);
-  for (let i = 0; i < 32; i++) {
-    buf[31 - i] = Number((x >> BigInt(i * 8)) & 0xffn);
-    buf[63 - i] = Number((y >> BigInt(i * 8)) & 0xffn);
-  }
-  return buf;
-}
-
-function encodeG2(
-  point: [[string, string], [string, string], [string, string]]
-): Uint8Array {
-  const buf = new Uint8Array(128);
-  const coords = [point[0][0], point[0][1], point[1][0], point[1][1]];
-  coords.forEach((dec, idx) => {
-    const val = BigInt(dec);
-    for (let i = 0; i < 32; i++) {
-      buf[idx * 32 + 31 - i] = Number((val >> BigInt(i * 8)) & 0xffn);
-    }
-  });
-  return buf;
-}
-
-function encodeScalar(dec: string): Uint8Array {
+/**
+ * Encode a big-endian 32-byte representation of a decimal field element.
+ * Used for both scalars and as a building block for G1/G2 point encoding.
+ */
+export function encodeScalar(dec: string): Uint8Array {
   const buf = new Uint8Array(32);
   const val = BigInt(dec);
   for (let i = 0; i < 32; i++) {
     buf[31 - i] = Number((val >> BigInt(i * 8)) & 0xffn);
   }
+  return buf;
+}
+
+/**
+ * Encode a BN254 G1 affine point as 64 bytes (x || y, each 32 bytes big-endian).
+ * Matches the byte layout expected by Stellar's BN254 host functions.
+ */
+export function encodeG1(point: [string, string, string]): Uint8Array {
+  const buf = new Uint8Array(64);
+  buf.set(encodeScalar(point[0]), 0);
+  buf.set(encodeScalar(point[1]), 32);
+  return buf;
+}
+
+/**
+ * Encode a BN254 G2 affine point as 128 bytes.
+ * Stellar BN254 expects c1 before c0 for each coordinate pair:
+ * x_c1 || x_c0 || y_c1 || y_c0  (128 bytes total)
+ */
+export function encodeG2(
+  point: [[string, string], [string, string], [string, string]]
+): Uint8Array {
+  // Stellar BN254 expects c1 before c0 for each coordinate pair.
+  // Order: x_c1 || x_c0 || y_c1 || y_c0  (128 bytes total)
+  const buf = new Uint8Array(128);
+  const coords = [point[0][1], point[0][0], point[1][1], point[1][0]];
+  coords.forEach((dec, idx) => {
+    buf.set(encodeScalar(dec), idx * 32);
+  });
   return buf;
 }
 

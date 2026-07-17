@@ -4,6 +4,9 @@ import {
   verifyProofLocally,
   generateSalt,
   NulliusClient,
+  encodeG1,
+  encodeG2,
+  encodeScalar,
 } from "@nullius/sdk";
 import type { PrivateInputs, ProofBundle, Tier } from "@nullius/sdk";
 import {
@@ -21,39 +24,6 @@ import { recordProof } from "./ProofHistory";
 interface Props {
   walletAddress: string;
   onProofVerified: (bundle: ProofBundle, tier: Tier) => void;
-}
-
-// ----------------------------------------------------------------
-// Proof encoding helpers (mirror sdk/src/contracts.ts)
-// ----------------------------------------------------------------
-function fieldToBytes32(dec: string): Uint8Array {
-  let val = BigInt(dec);
-  const buf = new Uint8Array(32);
-  for (let i = 31; i >= 0; i--) {
-    buf[i] = Number(val & 0xffn);
-    val >>= 8n;
-  }
-  return buf;
-}
-
-function encodeG1Bytes(point: [string, string, string]): Uint8Array {
-  const buf = new Uint8Array(64);
-  buf.set(fieldToBytes32(point[0]), 0);
-  buf.set(fieldToBytes32(point[1]), 32);
-  return buf;
-}
-
-function encodeG2Bytes(point: [[string, string], [string, string], [string, string]]): Uint8Array {
-  const buf = new Uint8Array(128);
-  buf.set(fieldToBytes32(point[0][1]), 0);
-  buf.set(fieldToBytes32(point[0][0]), 32);
-  buf.set(fieldToBytes32(point[1][1]), 64);
-  buf.set(fieldToBytes32(point[1][0]), 96);
-  return buf;
-}
-
-function encodeScalarBytes(dec: string): Uint8Array {
-  return fieldToBytes32(dec);
 }
 
 type Step = "input" | "generating" | "verifying" | "submitting" | "done" | "error";
@@ -99,21 +69,11 @@ export function ProofGenerator({ walletAddress, onProofVerified }: Props) {
       const server = client.getServer();
       const account = await server.getAccount(walletAddress);
 
-      const encodeBytes = (hex: string, len: number): Uint8Array => {
-        const val = BigInt(hex);
-        const buf = new Uint8Array(len);
-        for (let i = len - 1; i >= 0; i--) {
-          buf[i] = Number(val & 0xffn);
-          // val >>= 8n — rewritten to avoid BigInt assignment in strict mode
-        }
-        return buf;
-      };
-
       const contract = new Contract(CONTRACT_IDS.reputationRegistry);
-      const proofABytes = encodeG1Bytes(bundle.proof.pi_a);
-      const proofBBytes = encodeG2Bytes(bundle.proof.pi_b);
-      const proofCBytes = encodeG1Bytes(bundle.proof.pi_c);
-      const commitmentBytes = encodeScalarBytes(bundle.publicSignals.commitment);
+      const proofABytes     = encodeG1(bundle.proof.pi_a);
+      const proofBBytes     = encodeG2(bundle.proof.pi_b);
+      const proofCBytes     = encodeG1(bundle.proof.pi_c);
+      const commitmentBytes = encodeScalar(bundle.publicSignals.commitment);
 
       const tx = new TransactionBuilder(account, {
         fee: BASE_FEE,
