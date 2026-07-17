@@ -40,6 +40,23 @@ impl ReputationRegistry {
     ) {
         caller.require_auth();
 
+        // Validate byte lengths before making the cross-contract call.
+        // The verifier expects BytesN<64/128/64/32>; a mismatch would cause an
+        // unhelpful panic deep inside the host. Failing fast here gives callers
+        // a clear error and saves the gas of a doomed cross-contract call.
+        if proof_a.len() != 64 {
+            panic!("proof_a must be 64 bytes (G1 point)");
+        }
+        if proof_b.len() != 128 {
+            panic!("proof_b must be 128 bytes (G2 point)");
+        }
+        if proof_c.len() != 64 {
+            panic!("proof_c must be 64 bytes (G1 point)");
+        }
+        if commitment.len() != 32 {
+            panic!("commitment must be 32 bytes (scalar field element)");
+        }
+
         // Encode threshold as 32-byte big-endian field element
         let threshold_bytes = Bytes::from_slice(&env, &{
             let mut b = [0u8; 32];
@@ -247,6 +264,59 @@ mod tests {
     // ----------------------------------------------------------------
     // Threshold → tier mapping logic (tested through score boundary values)
     // ----------------------------------------------------------------
+
+    // ----------------------------------------------------------------
+    // Byte-length validation in submit_proof
+    // ----------------------------------------------------------------
+
+    #[test]
+    #[should_panic(expected = "proof_a must be 64 bytes")]
+    fn submit_proof_rejects_short_proof_a() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let cid = env.register_contract(None, ReputationRegistry);
+        let client = ReputationRegistryClient::new(&env, &cid);
+        let dummy_verifier = Address::generate(&env);
+        client.initialize(&dummy_verifier);
+        let wallet     = Address::generate(&env);
+        let bad_proof  = soroban_sdk::Bytes::from_slice(&env, &[0u8; 32]); // too short
+        let zero64     = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]);
+        let zero128    = soroban_sdk::Bytes::from_slice(&env, &[0u8; 128]);
+        let zero32     = soroban_sdk::Bytes::from_slice(&env, &[0u8; 32]);
+        client.submit_proof(&wallet, &85u32, &bad_proof, &zero128, &zero64, &zero32);
+    }
+
+    #[test]
+    #[should_panic(expected = "proof_b must be 128 bytes")]
+    fn submit_proof_rejects_short_proof_b() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let cid = env.register_contract(None, ReputationRegistry);
+        let client = ReputationRegistryClient::new(&env, &cid);
+        let dummy_verifier = Address::generate(&env);
+        client.initialize(&dummy_verifier);
+        let wallet     = Address::generate(&env);
+        let zero64     = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]);
+        let bad_proof  = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]); // should be 128
+        let zero32     = soroban_sdk::Bytes::from_slice(&env, &[0u8; 32]);
+        client.submit_proof(&wallet, &85u32, &zero64, &bad_proof, &zero64, &zero32);
+    }
+
+    #[test]
+    #[should_panic(expected = "commitment must be 32 bytes")]
+    fn submit_proof_rejects_bad_commitment_length() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let cid = env.register_contract(None, ReputationRegistry);
+        let client = ReputationRegistryClient::new(&env, &cid);
+        let dummy_verifier = Address::generate(&env);
+        client.initialize(&dummy_verifier);
+        let wallet         = Address::generate(&env);
+        let zero64         = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]);
+        let zero128        = soroban_sdk::Bytes::from_slice(&env, &[0u8; 128]);
+        let bad_commitment = soroban_sdk::Bytes::from_slice(&env, &[0u8; 16]); // too short
+        client.submit_proof(&wallet, &85u32, &zero64, &zero128, &zero64, &bad_commitment);
+    }
 
     /// Verify that threshold 39 would be rejected (below Bronze minimum).
     /// We test this by calling submit_proof with a dummy verifier; the panic
