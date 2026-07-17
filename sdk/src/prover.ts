@@ -46,14 +46,17 @@ async function computeCommitment(inputs: PrivateInputs): Promise<string> {
  */
 function selectThreshold(inputs: PrivateInputs): number {
   // Estimate score proxy: same formula as circuit (no division)
-  const txCapped = Math.min(inputs.txCount, 50);
+  const txCapped  = Math.min(inputs.txCount, 50);
   const ageCapped = Math.min(inputs.monthsActive, 12);
-  const cleanTxs = inputs.txCount - inputs.disputeCount;
-  const scoreProxy = txCapped * 480 + cleanTxs * 480 + ageCapped * 1000;
+  const balCapped = Math.min(inputs.avgBalance, 10000);
+  const cleanTxs  = inputs.txCount - inputs.disputeCount;
+  // score_proxy = txCapped*480 + cleanTxs*480 + ageCapped*1000 + balCapped
+  // threshold_scaled = threshold * 700
+  const scoreProxy = txCapped * 480 + cleanTxs * 480 + ageCapped * 1000 + balCapped;
 
-  if (scoreProxy >= TIER_THRESHOLDS.gold * 600) return TIER_THRESHOLDS.gold;
-  if (scoreProxy >= TIER_THRESHOLDS.silver * 600) return TIER_THRESHOLDS.silver;
-  if (scoreProxy >= TIER_THRESHOLDS.bronze * 600) return TIER_THRESHOLDS.bronze;
+  if (scoreProxy >= TIER_THRESHOLDS.gold   * 700) return TIER_THRESHOLDS.gold;
+  if (scoreProxy >= TIER_THRESHOLDS.silver * 700) return TIER_THRESHOLDS.silver;
+  if (scoreProxy >= TIER_THRESHOLDS.bronze * 700) return TIER_THRESHOLDS.bronze;
   throw new Error("Score too low for any tier (minimum Bronze threshold is 40)");
 }
 
