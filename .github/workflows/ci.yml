@@ -2,7 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches:
+      - main
+      - develop
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
   pull_request:
     branches: [main, develop]
 
@@ -23,7 +28,8 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-unknown-unknown
+          # wasm32v1-none is the current Soroban WASM target (soroban-sdk ≥ 21)
+          targets: wasm32v1-none
 
       - name: Cache Cargo registry
         uses: actions/cache@v4
@@ -45,7 +51,7 @@ jobs:
         run: cargo test --all
 
       - name: Build WASM release artifacts
-        run: cargo build --target wasm32-unknown-unknown --release
+        run: cargo build --target wasm32v1-none --release
 
   # ----------------------------------------------------------------
   # SDK type-check + build
@@ -95,3 +101,86 @@ jobs:
 
       - name: Build frontend
         run: npm run build:frontend
+
+  # ----------------------------------------------------------------
+  # WASM artifact size report (runs after contracts build)
+  # Fails the build if any contract exceeds 100 KB — keeps contract
+  # costs predictable and catches accidental dependency bloat.
+  # ----------------------------------------------------------------
+  wasm-size:
+    name: WASM Size Check
+    runs-on: ubuntu-latest
+    needs: contracts
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32v1-none
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Build WASM release artifacts
+        run: cargo build --target wasm32v1-none --release
+
+      - name: Report and check WASM sizes
+        run: |
+          WASM_DIR="target/wasm32v1-none/release"
+          MAX_BYTES=102400  # 100 KB
+          FAIL=0
+          for f in groth16_verifier reputation_registry payment_gate; do
+            FILE="$WASM_DIR/${f}.wasm"
+            if [ -f "$FILE" ]; then
+              SIZE=$(wc -c < "$FILE")
+              echo "$f: ${SIZE} bytes ($(echo "scale=1; $SIZE/1024" | bc) KB)"
+              if [ "$SIZE" -gt "$MAX_BYTES" ]; then
+                echo "  ERROR: exceeds 100 KB limit"
+                FAIL=1
+              fi
+            else
+              echo "WARNING: $FILE not found"
+            fi
+          done
+          exit $FAIL
+
+  # ----------------------------------------------------------------
+  # Dependency security audit
+  # ----------------------------------------------------------------
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Audit npm dependencies
+        # --audit-level=high: fail only on high/critical vulns, not moderate
+        run: npm audit --audit-level=high
+        continue-on-error: true   # advisory only for now; remove to enforce
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Audit Cargo dependencies
+        run: cargo audit
+        continue-on-error: true   # advisory only for now; remove to enforce
