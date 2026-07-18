@@ -351,4 +351,143 @@ mod tests {
             &zero32,
         );
     }
+
+    // ----------------------------------------------------------------
+    // submit_proof success path — mock verifier that always returns true
+    // ----------------------------------------------------------------
+
+    mod mock_verifier {
+        use soroban_sdk::{
+            contract, contractimpl, BytesN, Env, Vec,
+        };
+
+        /// Stub Groth16 verifier that always approves any proof.
+        /// Used to exercise the submit_proof success path without needing
+        /// a real Groth16 proof.
+        #[contract]
+        pub struct AlwaysTrueVerifier;
+
+        #[contractimpl]
+        impl AlwaysTrueVerifier {
+            pub fn verify(
+                _env: Env,
+                _proof_a: BytesN<64>,
+                _proof_b: BytesN<128>,
+                _proof_c: BytesN<64>,
+                _public_inputs: Vec<BytesN<32>>,
+            ) -> bool {
+                true
+            }
+        }
+    }
+
+    /// Helper to build correct-length proof bytes for submit_proof calls.
+    fn make_proof_bytes(env: &Env) -> (
+        soroban_sdk::Bytes,
+        soroban_sdk::Bytes,
+        soroban_sdk::Bytes,
+        soroban_sdk::Bytes,
+    ) {
+        (
+            soroban_sdk::Bytes::from_slice(env, &[0u8; 64]),   // proof_a
+            soroban_sdk::Bytes::from_slice(env, &[0u8; 128]),  // proof_b
+            soroban_sdk::Bytes::from_slice(env, &[0u8; 64]),   // proof_c
+            soroban_sdk::Bytes::from_slice(env, &[0u8; 32]),   // commitment
+        )
+    }
+
+    #[test]
+    fn submit_proof_gold_sets_gold_tier() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
+        let registry_id = env.register_contract(None, ReputationRegistry);
+        let client      = ReputationRegistryClient::new(&env, &registry_id);
+        client.initialize(&verifier_id);
+
+        let wallet = Address::generate(&env);
+        let (pa, pb, pc, cm) = make_proof_bytes(&env);
+        client.submit_proof(&wallet, &85u32, &pa, &pb, &pc, &cm);
+
+        assert_eq!(client.get_tier(&wallet), TIER_GOLD);
+    }
+
+    #[test]
+    fn submit_proof_silver_sets_silver_tier() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
+        let registry_id = env.register_contract(None, ReputationRegistry);
+        let client      = ReputationRegistryClient::new(&env, &registry_id);
+        client.initialize(&verifier_id);
+
+        let wallet = Address::generate(&env);
+        let (pa, pb, pc, cm) = make_proof_bytes(&env);
+        client.submit_proof(&wallet, &70u32, &pa, &pb, &pc, &cm);
+
+        assert_eq!(client.get_tier(&wallet), TIER_SILVER);
+    }
+
+    #[test]
+    fn submit_proof_bronze_sets_bronze_tier() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
+        let registry_id = env.register_contract(None, ReputationRegistry);
+        let client      = ReputationRegistryClient::new(&env, &registry_id);
+        client.initialize(&verifier_id);
+
+        let wallet = Address::generate(&env);
+        let (pa, pb, pc, cm) = make_proof_bytes(&env);
+        client.submit_proof(&wallet, &40u32, &pa, &pb, &pc, &cm);
+
+        assert_eq!(client.get_tier(&wallet), TIER_BRONZE);
+    }
+
+    #[test]
+    fn submit_proof_upgrade_allowed() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
+        let registry_id = env.register_contract(None, ReputationRegistry);
+        let client      = ReputationRegistryClient::new(&env, &registry_id);
+        client.initialize(&verifier_id);
+
+        let wallet = Address::generate(&env);
+        let (pa, pb, pc, cm) = make_proof_bytes(&env);
+
+        // First submit: Bronze
+        client.submit_proof(&wallet, &40u32, &pa, &pb, &pc, &cm);
+        assert_eq!(client.get_tier(&wallet), TIER_BRONZE);
+
+        // Upgrade to Gold
+        client.submit_proof(&wallet, &85u32, &pa, &pb, &pc, &cm);
+        assert_eq!(client.get_tier(&wallet), TIER_GOLD);
+    }
+
+    #[test]
+    fn submit_proof_downgrade_not_allowed() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
+        let registry_id = env.register_contract(None, ReputationRegistry);
+        let client      = ReputationRegistryClient::new(&env, &registry_id);
+        client.initialize(&verifier_id);
+
+        let wallet = Address::generate(&env);
+        let (pa, pb, pc, cm) = make_proof_bytes(&env);
+
+        // First submit: Gold
+        client.submit_proof(&wallet, &85u32, &pa, &pb, &pc, &cm);
+        assert_eq!(client.get_tier(&wallet), TIER_GOLD);
+
+        // Attempt downgrade to Bronze — tier must stay Gold
+        client.submit_proof(&wallet, &40u32, &pa, &pb, &pc, &cm);
+        assert_eq!(client.get_tier(&wallet), TIER_GOLD, "Downgrade must be silently ignored");
+    }
 }
