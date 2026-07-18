@@ -58,6 +58,13 @@ const SECRET = process.env.SECRET_KEY;
 const keypair = SECRET ? Keypair.fromSecret(SECRET) : Keypair.random();
 console.log("Test wallet:", keypair.publicKey());
 
+if (!SECRET) {
+  console.warn("\n⚠  No SECRET_KEY set — using a random unfunded keypair.");
+  console.warn("   Steps 1-2 (proof generation + local verify) will run.");
+  console.warn("   Steps 3-5 (on-chain) will be skipped automatically.");
+  console.warn("   To run the full test: export SECRET_KEY=<funded testnet secret>\n");
+}
+
 // ----------------------------------------------------------------
 // Helper: BigInt field element → 32-byte BE buffer
 // ----------------------------------------------------------------
@@ -166,8 +173,23 @@ async function submitToStellar(proof, publicSignals, inputs) {
   console.log("\n[3/5] Submitting proof to Stellar testnet...");
 
   if (!proof) { console.log("  Skipped (mock mode)"); return; }
+  if (!SECRET) { console.log("  Skipped (no SECRET_KEY — unfunded keypair)"); return null; }
 
-  const server  = new SorobanRpc.Server(RPC_URL);
+  const server = new SorobanRpc.Server(RPC_URL);
+
+  // Verify the account exists and is funded before attempting the transaction
+  try {
+    await server.getAccount(keypair.publicKey());
+  } catch (e) {
+    if (e?.response?.status === 404 || String(e).includes("404")) {
+      console.error(`\n  Account not found on testnet: ${keypair.publicKey()}`);
+      console.error("  Fund it first: stellar keys fund deployer --network testnet");
+      console.error("  Or use the Stellar friendbot: https://friendbot.stellar.org/?addr=" + keypair.publicKey());
+      process.exit(1);
+    }
+    throw e;
+  }
+
   const account = await server.getAccount(keypair.publicKey());
 
   const proofABytes  = encodeG1(proof.pi_a);
@@ -223,6 +245,7 @@ async function submitToStellar(proof, publicSignals, inputs) {
 // ----------------------------------------------------------------
 async function assertTier() {
   console.log("\n[4/5] Reading tier from registry...");
+  if (!SECRET) { console.log("  Skipped (no SECRET_KEY)"); return null; }
 
   const server  = new SorobanRpc.Server(RPC_URL);
   const account = await server.getAccount(keypair.publicKey());
@@ -261,6 +284,7 @@ async function assertTier() {
 // ----------------------------------------------------------------
 async function assertQuote(tier) {
   console.log("\n[5/5] Checking payment gate quote...");
+  if (!SECRET || tier === null) { console.log("  Skipped (no SECRET_KEY)"); return; }
 
   const server  = new SorobanRpc.Server(RPC_URL);
   const account = await server.getAccount(keypair.publicKey());
@@ -314,7 +338,12 @@ async function assertQuote(tier) {
     const tier = await assertTier();
     await assertQuote(tier);
 
-    console.log("\n✓ All tests passed. Nullius is working end-to-end on Stellar testnet.");
+    if (!SECRET) {
+      console.log("\n✓ Offline steps passed (proof generation + local verification).");
+      console.log("  Set SECRET_KEY to a funded testnet account to run on-chain steps.");
+    } else {
+      console.log("\n✓ All tests passed. Nullius is working end-to-end on Stellar testnet.");
+    }
   } catch (err) {
     console.error("\n✗ Test failed:", err.message);
     process.exit(1);
