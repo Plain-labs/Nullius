@@ -68,6 +68,21 @@ function selectThreshold(inputs: PrivateInputs): number {
  *
  * @param inputs  Private financial data
  * @returns       ProofBundle ready to submit to the reputation registry contract
+ *
+ * NOTE on public signal ordering:
+ *   snarkjs outputs signals as [<outputs>, <public inputs>] in declaration order:
+ *     publicSignals[0] = meets_threshold  (circuit output)
+ *     publicSignals[1] = threshold        (public input)
+ *     publicSignals[2] = commitment       (public input)
+ *
+ *   The on-chain verifier / registry expects public_inputs in a different order:
+ *     public_inputs[0] = threshold
+ *     public_inputs[1] = commitment
+ *     public_inputs[2] = meets_threshold
+ *
+ *   The ProofBundle.publicSignals struct stores values by name, not index, so
+ *   the encoding helpers in contracts.ts always submit them in the correct
+ *   on-chain order regardless of the snarkjs output order.
  */
 export async function generateReputationProof(
   inputs: PrivateInputs
