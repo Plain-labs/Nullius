@@ -13,7 +13,7 @@
  * Prerequisites:
  *   stellar keys generate deployer --network testnet
  *   stellar keys fund deployer --network testnet
- *   cargo build --target wasm32-unknown-unknown --release
+ *   npm run contracts:build   (cargo build --target wasm32v1-none --release)
  *
  * Usage:
  *   node scripts/deploy.js
@@ -32,27 +32,68 @@ const CONTRACTS_OUT = path.join(__dirname, "../.contract_addresses.json");
 // ----------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------
-function run(cmd, label) {
+
+/**
+ * Execute a shell command, retrying up to `retries` times on transient
+ * RPC/network errors. Non-network errors exit immediately.
+ */
+function run(cmd, label, retries = 2) {
   console.log(`\n→ ${label}`);
   console.log(`  $ ${cmd}`);
-  try {
-    const out = execSync(cmd, { encoding: "utf8" }).trim();
-    console.log(`  ${out}`);
-    return out;
-  } catch (e) {
-    console.error(`\nERROR during: ${label}`);
-    console.error(e.stderr || e.message);
-    process.exit(1);
+
+  const TRANSIENT_PATTERNS = [
+    /connection refused/i,
+    /timeout/i,
+    /ECONNRESET/i,
+    /network error/i,
+    /429/,          // rate limited
+    /503/,          // service unavailable
+  ];
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const out = execSync(cmd, { encoding: "utf8" }).trim();
+      console.log(`  ${out}`);
+      return out;
+    } catch (e) {
+      const msg = (e.stderr || e.message || "").toString();
+      const isTransient = TRANSIENT_PATTERNS.some((p) => p.test(msg));
+
+      if (isTransient && attempt < retries) {
+        const waitMs = 3000 * (attempt + 1);
+        console.warn(`  ⚠ Transient error (attempt ${attempt + 1}/${retries + 1}), retrying in ${waitMs / 1000}s...`);
+        // Synchronous sleep via a tight loop (deploy script is already blocking)
+        const end = Date.now() + waitMs;
+        while (Date.now() < end) { /* spin */ }
+        continue;
+      }
+
+      console.error(`\nERROR during: ${label}`);
+      console.error(msg);
+      process.exit(1);
+    }
   }
 }
 
 function deployContract(name, wasmFile) {
   const wasmPath = path.join(WASM_DIR, wasmFile);
-  if (!require("fs").existsSync(wasmPath)) {
+  const fsSafe   = require("fs");
+
+  if (!fsSafe.existsSync(wasmPath)) {
     console.error(`WASM not found: ${wasmPath}`);
-    console.error("Run: cargo build --target wasm32-unknown-unknown --release");
+    console.error("Run: cargo build --target wasm32v1-none --release");
     process.exit(1);
   }
+
+  // Sanity-check: a valid WASM file is always at least a few KB.
+  // Zero-byte or tiny files indicate a failed build silently succeeded.
+  const { size } = fsSafe.statSync(wasmPath);
+  if (size < 1024) {
+    console.error(`WASM file is suspiciously small (${size} bytes): ${wasmPath}`);
+    console.error("This usually means the build failed silently. Re-run: npm run contracts:build");
+    process.exit(1);
+  }
+  console.log(`  WASM size: ${(size / 1024).toFixed(1)} KB`);
 
   const contractId = run(
     `stellar contract deploy \
