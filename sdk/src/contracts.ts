@@ -334,15 +334,28 @@ export class NulliusClient {
     return prepared.toXDR();
   }
 
-  private async waitForConfirmation(txHash: string, maxAttempts = 20): Promise<void> {
-    for (let i = 0; i < maxAttempts; i++) {
-      await new Promise((r) => setTimeout(r, 1500));
+  /**
+   * Poll for transaction confirmation with exponential backoff.
+   * Starts at 1 s, doubles each attempt (capped at 8 s), gives up after
+   * maxWaitMs total elapsed time (default 30 s).
+   */
+  private async waitForConfirmation(
+    txHash: string,
+    maxWaitMs = 30_000
+  ): Promise<void> {
+    const start   = Date.now();
+    let   delayMs = 1_000;
+
+    while (Date.now() - start < maxWaitMs) {
+      await new Promise((r) => setTimeout(r, delayMs));
+      delayMs = Math.min(delayMs * 2, 8_000); // cap at 8 s
+
       const status = await this.server.getTransaction(txHash);
       if (status.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS) return;
       if (status.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
         throw new Error(`Transaction failed on-chain: ${txHash}`);
       }
     }
-    throw new Error("Transaction confirmation timeout");
+    throw new Error(`Transaction confirmation timeout after ${maxWaitMs / 1000}s: ${txHash}`);
   }
 }
