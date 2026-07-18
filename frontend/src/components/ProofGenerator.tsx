@@ -4,21 +4,13 @@ import {
   verifyProofLocally,
   generateSalt,
   NulliusClient,
-  encodeG1,
-  encodeG2,
-  encodeScalar,
 } from "@nullius/sdk";
 import type { PrivateInputs, ProofBundle, Tier } from "@nullius/sdk";
 import {
   TransactionBuilder,
-  BASE_FEE,
   Networks,
-  Contract,
-  nativeToScVal,
-  xdr,
 } from "@stellar/stellar-sdk";
 import { signTransaction } from "@stellar/freighter-api";
-import { CONTRACT_IDS } from "@nullius/sdk";
 import { recordProof } from "./ProofHistory";
 
 interface Props {
@@ -65,41 +57,16 @@ export function ProofGenerator({ walletAddress, onProofVerified }: Props) {
       setStep("submitting");
       const client = new NulliusClient();
 
-      // Build the unsigned transaction, then sign via Freighter
-      const server = client.getServer();
-      const account = await server.getAccount(walletAddress);
-
-      const contract = new Contract(CONTRACT_IDS.reputationRegistry);
-      const proofABytes     = encodeG1(bundle.proof.pi_a);
-      const proofBBytes     = encodeG2(bundle.proof.pi_b);
-      const proofCBytes     = encodeG1(bundle.proof.pi_c);
-      const commitmentBytes = encodeScalar(bundle.publicSignals.commitment);
-
-      const tx = new TransactionBuilder(account, {
-        fee: BASE_FEE,
-        networkPassphrase: Networks.TESTNET,
-      })
-        .addOperation(
-          contract.call(
-            "submit_proof",
-            nativeToScVal(walletAddress,        { type: "address" }),
-            nativeToScVal(bundle.threshold,     { type: "u32" }),
-            xdr.ScVal.scvBytes(proofABytes as unknown as Buffer),
-            xdr.ScVal.scvBytes(proofBBytes as unknown as Buffer),
-            xdr.ScVal.scvBytes(proofCBytes as unknown as Buffer),
-            xdr.ScVal.scvBytes(commitmentBytes as unknown as Buffer),
-          )
-        )
-        .setTimeout(30)
-        .build();
-
-      const prepared  = await server.prepareTransaction(tx);
-      const signResult = await signTransaction(prepared.toXDR(), {
+      // Build the unsigned transaction via SDK, then sign with Freighter
+      const unsignedXdr = await client.buildSubmitProofTransaction(walletAddress, bundle);
+      const signResult  = await signTransaction(unsignedXdr, {
         networkPassphrase: Networks.TESTNET,
       });
       // freighter-api v2 returns string directly; v1 returned { signedTxXdr }
       const signedTxXdr = typeof signResult === "string" ? signResult : (signResult as any).signedTxXdr;
-      const result = await server.sendTransaction(
+
+      const server = client.getServer();
+      const result  = await server.sendTransaction(
         TransactionBuilder.fromXDR(signedTxXdr, Networks.TESTNET)
       );
 

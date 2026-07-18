@@ -141,6 +141,49 @@ export class NulliusClient {
     return this.server;
   }
 
+  /**
+   * Build an unsigned XDR transaction to submit a reputation proof via Freighter.
+   * Returns the unsigned XDR string — caller signs it and submits via server.sendTransaction().
+   *
+   * This is the preferred path for browser-based proof submission where the
+   * private key is held by Freighter and never exposed to the SDK.
+   */
+  async buildSubmitProofTransaction(
+    walletAddress: string,
+    bundle: ProofBundle
+  ): Promise<string> {
+    requireValidAddress(walletAddress, "wallet address");
+
+    const account = await this.server.getAccount(walletAddress);
+
+    const proofABytes     = encodeG1(bundle.proof.pi_a);
+    const proofBBytes     = encodeG2(bundle.proof.pi_b);
+    const proofCBytes     = encodeG1(bundle.proof.pi_c);
+    const commitmentBytes = encodeScalar(bundle.publicSignals.commitment);
+
+    const contract = new Contract(CONTRACT_IDS.reputationRegistry);
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: NETWORK_PASSPHRASE,
+    })
+      .addOperation(
+        contract.call(
+          "submit_proof",
+          nativeToScVal(walletAddress,    { type: "address" }),
+          nativeToScVal(bundle.threshold, { type: "u32" }),
+          xdr.ScVal.scvBytes(proofABytes     as unknown as Buffer),
+          xdr.ScVal.scvBytes(proofBBytes     as unknown as Buffer),
+          xdr.ScVal.scvBytes(proofCBytes     as unknown as Buffer),
+          xdr.ScVal.scvBytes(commitmentBytes as unknown as Buffer),
+        )
+      )
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.server.prepareTransaction(tx);
+    return prepared.toXDR();
+  }
+
   /** Submit a reputation proof to the registry contract using a keypair. */
   async submitProof(
     keypair: Keypair,
