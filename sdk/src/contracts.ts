@@ -294,6 +294,32 @@ export class NulliusClient {
     throw new Error("Failed to get quote");
   }
 
+  /** Get the maximum per-transaction payment limit for a wallet. */
+  async getLimit(walletAddress: string): Promise<bigint> {
+    requireValidAddress(walletAddress, "wallet address");
+    const contract = new Contract(CONTRACT_IDS.paymentGate);
+    const account  = await this.server.getAccount(walletAddress);
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: NETWORK_PASSPHRASE,
+    })
+      .addOperation(
+        contract.call(
+          "limit",
+          nativeToScVal(walletAddress, { type: "address" })
+        )
+      )
+      .setTimeout(30)
+      .build();
+
+    const result = await this.server.simulateTransaction(tx);
+    if (SorobanRpc.Api.isSimulationSuccess(result)) {
+      return scValToNative(result.result!.retval) as bigint;
+    }
+    throw new Error("Failed to get payment limit");
+  }
+
   /**
    * Build an unsigned XDR transaction for a token send via the payment gate.
    * The caller signs it with Freighter and submits via server.sendTransaction().

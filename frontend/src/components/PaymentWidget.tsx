@@ -21,6 +21,7 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
   const [recipient, setRecipient]     = useState("");
   const [amount, setAmount]           = useState("");
   const [quote, setQuote]             = useState<PaymentQuote | null>(null);
+  const [txLimit, setTxLimit]         = useState<bigint | null>(null);
   const [quoting, setQuoting]         = useState(false);
   const [sending, setSending]         = useState(false);
   const [txHash, setTxHash]           = useState<string | null>(null);
@@ -29,6 +30,14 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
   const recipientValid = recipient === "" || isValidStellarAddress(recipient);
   const amountNum = parseFloat(amount);
   const amountValid = !amount || (amountNum > 0 && isFinite(amountNum));
+
+  // Fetch per-tx limit on mount and when tier changes
+  useEffect(() => {
+    const client = new NulliusClient();
+    client.getLimit(walletAddress)
+      .then((lim) => setTxLimit(lim))
+      .catch(() => setTxLimit(null));
+  }, [walletAddress, currentTier]);
 
   // Debounced quote fetch
   useEffect(() => {
@@ -110,6 +119,9 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
       <p className="subtitle">
         Your reputation tier (<strong>{TIER_LABELS[currentTier]}</strong>) determines
         your fee rate and payment limits.
+        {txLimit !== null && (
+          <> Max per transaction: <strong>{(Number(txLimit) / 10_000_000).toLocaleString()} XLM</strong>.</>
+        )}
       </p>
 
       <div className="form-grid form-grid--single">
