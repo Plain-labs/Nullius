@@ -142,15 +142,29 @@ The ZK proof is not cosmetic — the Soroban contract **cannot be tricked**:
 - The `meets_threshold` output is enforced both by the circuit and the verifier contract
 - Stellar's native BN254 host functions (Protocol 25/26) make verification cheap
 
+### Score formula
+
+The reputation score is computed inside the ZK circuit (never on-chain):
+
+| Component | Max contribution | Notes |
+|-----------|-----------------|-------|
+| Transaction count | 40 pts | capped at 50 txs |
+| Clean transaction rate | 40 pts | (tx_count − disputes) contribution |
+| Wallet age | 20 pts | capped at 12 months |
+| Average balance | ~14 pts | capped at 10,000 units (XLM/1000) |
+
+All arithmetic uses integer scaling (factor 700) to avoid division in ZK constraints.
+
 ## Deployed contracts (Stellar testnet)
 
-> Updated after deployment via `npm run deploy:testnet`
+> Updated after deployment via `npm run deploy:testnet`.
+> Run `cat sdk/src/contract_ids.json` to see the latest addresses.
 
 | Contract | Address |
 |----------|---------|
-| groth16_verifier | TBD |
-| reputation_registry | TBD |
-| payment_gate | TBD |
+| groth16_verifier | See `sdk/src/contract_ids.json` |
+| reputation_registry | See `sdk/src/contract_ids.json` |
+| payment_gate | See `sdk/src/contract_ids.json` |
 
 ## Privacy guarantees
 
