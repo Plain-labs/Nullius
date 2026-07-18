@@ -8,9 +8,9 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "^12.0.0",
-    "circomlibjs": "^0.1.7",
-    "snarkjs": "^0.7.0"
+    "@stellar/stellar-sdk": "12.3.0",
+    "circomlibjs": "0.1.7",
+    "snarkjs": "0.7.6"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

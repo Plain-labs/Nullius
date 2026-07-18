@@ -10,9 +10,43 @@ interface State {
   error: Error | null;
 }
 
+// ---------------------------------------------------------------------------
+// Lightweight structured error reporter.
+// Sends a JSON payload to the configured endpoint when VITE_ERROR_ENDPOINT is
+// set. Falls back to console.error only (safe for local dev / hackathon use).
+// ---------------------------------------------------------------------------
+function reportError(error: Error, componentStack: string | null | undefined): void {
+  const endpoint =
+    typeof import.meta !== "undefined"
+      ? (import.meta.env as Record<string, string | undefined>)["VITE_ERROR_ENDPOINT"]
+      : undefined;
+
+  // Always log to console so errors are visible in DevTools
+  console.error("[Nullius] Unhandled render error:", error.message, componentStack);
+
+  if (!endpoint) return;
+
+  // Best-effort fire-and-forget — do not await or throw
+  try {
+    const body = JSON.stringify({
+      message:   error.message,
+      stack:     error.stack,
+      component: componentStack,
+      url:       window.location.href,
+      ts:        new Date().toISOString(),
+    });
+    navigator.sendBeacon(endpoint, new Blob([body], { type: "application/json" }));
+  } catch {
+    // Swallow — reporting must never crash the app
+  }
+}
+
 /**
  * Catches unhandled render errors in child components and shows a
  * friendly recovery UI instead of a blank screen.
+ *
+ * Set VITE_ERROR_ENDPOINT in .env to enable remote error reporting via
+ * navigator.sendBeacon (e.g. a Sentry ingest URL or a custom endpoint).
  */
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -25,8 +59,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // In production this could be wired to a logging service
-    console.error("[Nullius] Unhandled render error:", error, info.componentStack);
+    reportError(error, info.componentStack);
   }
 
   reset = () => {

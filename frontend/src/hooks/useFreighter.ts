@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from "react";
 import {
   isConnected,
   getPublicKey,
-  signTransaction,
 } from "@stellar/freighter-api";
 
 interface FreighterState {
@@ -51,12 +50,9 @@ export function useFreighter() {
     }
   }, []);
 
-  const sign = useCallback(async (xdr: string) => {
-    const result = await (signTransaction(xdr, {
-      networkPassphrase: "Test SDF Network ; September 2015",
-    }) as unknown as Promise<string | { signedTxXdr: string }>);
-    return typeof result === "string" ? result : result.signedTxXdr;
-  }, []);
+  // Note: individual components import signTransaction from @stellar/freighter-api
+  // directly rather than going through this hook, because each signing call needs
+  // a different networkPassphrase context. The hook handles connection state only.
 
-  return { ...state, connect, sign };
+  return { ...state, connect };
 }

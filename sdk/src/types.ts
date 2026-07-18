@@ -11,6 +11,22 @@ export const TIER_LABELS: Record<Tier, string> = {
   3: "Gold",
 };
 
+/**
+ * Canonical hex colors for each tier — used by frontend components and any
+ * consumer that needs to display tier badges consistently.
+ *
+ *   0 Unverified — slate  (#64748b)
+ *   1 Bronze     — amber-brown (#b45309)
+ *   2 Silver     — silver-slate (#94a3b8) — intentionally lighter than Unverified
+ *   3 Gold       — amber (#d97706)
+ */
+export const TIER_COLORS: Record<Tier, string> = {
+  0: "#64748b",
+  1: "#b45309",
+  2: "#94a3b8",
+  3: "#d97706",
+};
+
 export const TIER_THRESHOLDS: Record<string, number> = {
   bronze: 40,
   silver: 70,

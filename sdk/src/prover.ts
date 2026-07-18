@@ -46,14 +46,17 @@ async function computeCommitment(inputs: PrivateInputs): Promise<string> {
  */
 function selectThreshold(inputs: PrivateInputs): number {
   // Estimate score proxy: same formula as circuit (no division)
-  const txCapped = Math.min(inputs.txCount, 50);
+  const txCapped  = Math.min(inputs.txCount, 50);
   const ageCapped = Math.min(inputs.monthsActive, 12);
-  const cleanTxs = inputs.txCount - inputs.disputeCount;
-  const scoreProxy = txCapped * 480 + cleanTxs * 480 + ageCapped * 1000;
+  const balCapped = Math.min(inputs.avgBalance, 10000);
+  const cleanTxs  = inputs.txCount - inputs.disputeCount;
+  // score_proxy = txCapped*480 + cleanTxs*480 + ageCapped*1000 + balCapped
+  // threshold_scaled = threshold * 700
+  const scoreProxy = txCapped * 480 + cleanTxs * 480 + ageCapped * 1000 + balCapped;
 
-  if (scoreProxy >= TIER_THRESHOLDS.gold * 600) return TIER_THRESHOLDS.gold;
-  if (scoreProxy >= TIER_THRESHOLDS.silver * 600) return TIER_THRESHOLDS.silver;
-  if (scoreProxy >= TIER_THRESHOLDS.bronze * 600) return TIER_THRESHOLDS.bronze;
+  if (scoreProxy >= TIER_THRESHOLDS.gold   * 700) return TIER_THRESHOLDS.gold;
+  if (scoreProxy >= TIER_THRESHOLDS.silver * 700) return TIER_THRESHOLDS.silver;
+  if (scoreProxy >= TIER_THRESHOLDS.bronze * 700) return TIER_THRESHOLDS.bronze;
   throw new Error("Score too low for any tier (minimum Bronze threshold is 40)");
 }
 
@@ -65,6 +68,21 @@ function selectThreshold(inputs: PrivateInputs): number {
  *
  * @param inputs  Private financial data
  * @returns       ProofBundle ready to submit to the reputation registry contract
+ *
+ * NOTE on public signal ordering:
+ *   snarkjs outputs signals as [<outputs>, <public inputs>] in declaration order:
+ *     publicSignals[0] = meets_threshold  (circuit output)
+ *     publicSignals[1] = threshold        (public input)
+ *     publicSignals[2] = commitment       (public input)
+ *
+ *   The on-chain verifier / registry expects public_inputs in a different order:
+ *     public_inputs[0] = threshold
+ *     public_inputs[1] = commitment
+ *     public_inputs[2] = meets_threshold
+ *
+ *   The ProofBundle.publicSignals struct stores values by name, not index, so
+ *   the encoding helpers in contracts.ts always submit them in the correct
+ *   on-chain order regardless of the snarkjs output order.
  */
 export async function generateReputationProof(
   inputs: PrivateInputs

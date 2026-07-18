@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TIER_LABELS } from "@nullius/sdk";
+import { TIER_LABELS, TIER_COLORS } from "@nullius/sdk";
 import type { Tier } from "@nullius/sdk";
 
 interface ProofRecord {
@@ -33,13 +33,6 @@ export function recordProof(tier: Tier, threshold: number, commitment: string): 
   }
 }
 
-const TIER_COLORS: Record<Tier, string> = {
-  0: "#64748b",
-  1: "#b45309",
-  2: "#6b7280",
-  3: "#d97706",
-};
-
 /**
  * Display a chronological list of ZK proof submissions for the current browser session.
  * History is stored in localStorage — it is client-side only and contains no sensitive data.
@@ -58,6 +51,15 @@ export function ProofHistory() {
     }
   }, []);
 
+  const clearHistory = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // localStorage may be unavailable
+    }
+    setRecords([]);
+  };
+
   if (records.length === 0) {
     return (
       <div
@@ -75,9 +77,26 @@ export function ProofHistory() {
 
   return (
     <div>
-      <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text2)", marginBottom: 12 }}>
-        Proof history (this browser)
-      </h3>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 600, color: "var(--text2)" }}>
+          Proof history (this browser)
+        </h3>
+        <button
+          onClick={clearHistory}
+          style={{
+            background: "none",
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            color: "var(--text2)",
+            fontSize: 12,
+            padding: "3px 10px",
+            cursor: "pointer",
+          }}
+          aria-label="Clear proof history"
+        >
+          Clear
+        </button>
+      </div>
       <ul
         style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}
         aria-label="Proof submission history"

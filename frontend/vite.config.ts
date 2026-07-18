@@ -21,7 +21,11 @@ export default defineConfig({
   },
   server: {
     headers: {
+      // Both headers are required to enable SharedArrayBuffer, which snarkjs
+      // uses for multi-threaded WASM proof generation. Without COEP, browsers
+      // silently disable SAB and fall back to single-threaded mode (~3× slower).
       "Cross-Origin-Opener-Policy": "same-origin",
+      "Cross-Origin-Embedder-Policy": "require-corp",
     },
   },
   build: {

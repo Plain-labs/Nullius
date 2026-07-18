@@ -15,9 +15,13 @@
     "vk:patch": "node scripts/patch_verifier.js",
     "vk:all": "npm run vk:extract && npm run vk:patch",
     "contracts:build": "cargo build --release --target wasm32v1-none",
-    "contracts:test": "cargo test",
+    "contracts:test": "cargo test --all",
+    "contracts:lint": "cargo clippy --all-targets -- -D warnings",
+    "contracts:fmt": "cargo fmt --all",
+    "contracts:fmt:check": "cargo fmt --all -- --check",
     "deploy:testnet": "node scripts/deploy.js",
     "test:e2e": "node scripts/e2e_test.js",
+    "test:all": "npm run contracts:test && npm run test:e2e",
     "setup:all": "npm install && npm run circuit:compile && npm run circuit:setup && npm run vk:all && npm run contracts:build && npm run deploy:testnet"
   },
   "dependencies": {

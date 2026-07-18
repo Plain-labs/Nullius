@@ -21,6 +21,7 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
   const [recipient, setRecipient]     = useState("");
   const [amount, setAmount]           = useState("");
   const [quote, setQuote]             = useState<PaymentQuote | null>(null);
+  const [txLimit, setTxLimit]         = useState<bigint | null>(null);
   const [quoting, setQuoting]         = useState(false);
   const [sending, setSending]         = useState(false);
   const [txHash, setTxHash]           = useState<string | null>(null);
@@ -29,6 +30,14 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
   const recipientValid = recipient === "" || isValidStellarAddress(recipient);
   const amountNum = parseFloat(amount);
   const amountValid = !amount || (amountNum > 0 && isFinite(amountNum));
+
+  // Fetch per-tx limit on mount and when tier changes
+  useEffect(() => {
+    const client = new NulliusClient();
+    client.getLimit(walletAddress)
+      .then((lim) => setTxLimit(lim))
+      .catch(() => setTxLimit(null));
+  }, [walletAddress, currentTier]);
 
   // Debounced quote fetch
   useEffect(() => {
@@ -60,8 +69,17 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
       const client = new NulliusClient();
       const stroops = BigInt(Math.round(parseFloat(amount) * 10_000_000));
 
-      // Native XLM token address on Stellar testnet
-      const NATIVE_TOKEN = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+      // Native XLM token address — configurable via VITE_NATIVE_TOKEN env var.
+      // Falls back to the testnet wrapped-XLM address if not set.
+      const NATIVE_TOKEN =
+        (typeof import.meta !== "undefined" && (import.meta.env as Record<string, string | undefined>)["VITE_NATIVE_TOKEN"]) ||
+        "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+
+      // Fee collector address — configurable via VITE_FEE_COLLECTOR env var.
+      // Defaults to the sender in demo mode (fees are circular / effectively zero).
+      const feeCollector =
+        (typeof import.meta !== "undefined" && (import.meta.env as Record<string, string | undefined>)["VITE_FEE_COLLECTOR"]) ||
+        walletAddress;
 
       // Build tx → sign via Freighter → submit
       const unsignedXdr = await client.buildSendTransaction(
@@ -69,7 +87,7 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
         recipient,
         NATIVE_TOKEN,
         stroops,
-        walletAddress // fee goes back to sender in demo; replace with treasury address
+        feeCollector
       );
 
       const signResult = await signTransaction(unsignedXdr, {
@@ -101,6 +119,9 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
       <p className="subtitle">
         Your reputation tier (<strong>{TIER_LABELS[currentTier]}</strong>) determines
         your fee rate and payment limits.
+        {txLimit !== null && (
+          <> Max per transaction: <strong>{(Number(txLimit) / 10_000_000).toLocaleString()} XLM</strong>.</>
+        )}
       </p>
 
       <div className="form-grid form-grid--single">

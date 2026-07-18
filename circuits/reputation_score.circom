@@ -82,28 +82,37 @@ template ReputationScore() {
     age_lt.in[1] <== 12;
     age_capped <== age_lt.out * months_active + (1 - age_lt.out) * 12;
 
+    // balance_score: capped at 10,000 units → contributes up to 20 points
+    // avg_balance is in stroops (1 XLM = 10,000,000 stroops). We normalise by
+    // dividing conceptually by 1,000 first (caller passes balance / 1000).
+    // Cap at 10_000 units (equivalent to 100 XLM) to prevent gaming.
+    signal bal_capped;
+    component bal_lt = LessThan(32);
+    bal_lt.in[0] <== avg_balance;
+    bal_lt.in[1] <== 10000;
+    bal_capped <== bal_lt.out * avg_balance + (1 - bal_lt.out) * 10000;
+
     // Combined score proxy (avoids division):
-    // score_proxy = tx_capped * 12 * 40 + age_capped * 50 * 20
-    //             + (tx_count - dispute_count) * 12 * 40
-    // threshold check done on same scale
     // Scale everything by 600 (LCM of 50 and 12) to stay integer:
-    //   tx contribution:   tx_capped * 480          (max 50*480=24000)
-    //   clean contribution:(tx_count-disputes)*480   (max 24000)
-    //   age contribution:  age_capped * 1000         (max 12000)
-    //   total max = 60000 → 100 points scaled
-    // threshold_scaled = threshold * 600
+    //   tx contribution:      tx_capped  * 480          (max 50*480    = 24000)
+    //   clean contribution:   clean_txs  * 480          (max 50*480    = 24000)
+    //   age contribution:     age_capped * 1000         (max 12*1000   = 12000)
+    //   balance contribution: bal_capped * 1            (max 10000*1   = 10000)
+    //   total max = 70000 → threshold_scaled = threshold * 700
+    // threshold_scaled = threshold * 700
 
     signal clean_txs;
     clean_txs <== tx_count - dispute_count;
 
     signal score_proxy;
-    score_proxy <== tx_capped * 480 + clean_txs * 480 + age_capped * 1000;
+    score_proxy <== tx_capped * 480 + clean_txs * 480 + age_capped * 1000 + bal_capped;
 
     signal threshold_scaled;
-    threshold_scaled <== threshold * 600;
+    threshold_scaled <== threshold * 700;
 
     // -------------------------------------------------------
     // 3. Check score_proxy >= threshold_scaled
+    //    score_proxy max = 70000 fits in 17 bits; 32 bits is safe.
     // -------------------------------------------------------
     component gte = GreaterEqThan(32);
     gte.in[0] <== score_proxy;

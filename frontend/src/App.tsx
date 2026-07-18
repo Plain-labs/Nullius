@@ -123,7 +123,7 @@ export default function App() {
 
       <footer className="footer">
         Built for Stellar Hacks: Real-World ZK · Open source ·{" "}
-        <a href="https://github.com/your-repo/nullius" target="_blank" rel="noreferrer">
+        <a href="https://github.com/nullius-zk/nullius" target="_blank" rel="noreferrer">
           GitHub
         </a>
       </footer>

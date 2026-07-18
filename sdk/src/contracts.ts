@@ -81,40 +81,48 @@ function requirePositiveAmount(amount: bigint, label = "amount"): void {
 }
 
 // ----------------------------------------------------------------
-// Proof encoding helpers
+// Proof encoding helpers (exported for use by frontend and scripts)
 // ----------------------------------------------------------------
 
-function encodeG1(point: [string, string, string]): Uint8Array {
-  const buf = new Uint8Array(64);
-  const x = BigInt(point[0]);
-  const y = BigInt(point[1]);
-  for (let i = 0; i < 32; i++) {
-    buf[31 - i] = Number((x >> BigInt(i * 8)) & 0xffn);
-    buf[63 - i] = Number((y >> BigInt(i * 8)) & 0xffn);
-  }
-  return buf;
-}
-
-function encodeG2(
-  point: [[string, string], [string, string], [string, string]]
-): Uint8Array {
-  const buf = new Uint8Array(128);
-  const coords = [point[0][0], point[0][1], point[1][0], point[1][1]];
-  coords.forEach((dec, idx) => {
-    const val = BigInt(dec);
-    for (let i = 0; i < 32; i++) {
-      buf[idx * 32 + 31 - i] = Number((val >> BigInt(i * 8)) & 0xffn);
-    }
-  });
-  return buf;
-}
-
-function encodeScalar(dec: string): Uint8Array {
+/**
+ * Encode a big-endian 32-byte representation of a decimal field element.
+ * Used for both scalars and as a building block for G1/G2 point encoding.
+ */
+export function encodeScalar(dec: string): Uint8Array {
   const buf = new Uint8Array(32);
   const val = BigInt(dec);
   for (let i = 0; i < 32; i++) {
     buf[31 - i] = Number((val >> BigInt(i * 8)) & 0xffn);
   }
+  return buf;
+}
+
+/**
+ * Encode a BN254 G1 affine point as 64 bytes (x || y, each 32 bytes big-endian).
+ * Matches the byte layout expected by Stellar's BN254 host functions.
+ */
+export function encodeG1(point: [string, string, string]): Uint8Array {
+  const buf = new Uint8Array(64);
+  buf.set(encodeScalar(point[0]), 0);
+  buf.set(encodeScalar(point[1]), 32);
+  return buf;
+}
+
+/**
+ * Encode a BN254 G2 affine point as 128 bytes.
+ * Stellar BN254 expects c1 before c0 for each coordinate pair:
+ * x_c1 || x_c0 || y_c1 || y_c0  (128 bytes total)
+ */
+export function encodeG2(
+  point: [[string, string], [string, string], [string, string]]
+): Uint8Array {
+  // Stellar BN254 expects c1 before c0 for each coordinate pair.
+  // Order: x_c1 || x_c0 || y_c1 || y_c0  (128 bytes total)
+  const buf = new Uint8Array(128);
+  const coords = [point[0][1], point[0][0], point[1][1], point[1][0]];
+  coords.forEach((dec, idx) => {
+    buf.set(encodeScalar(dec), idx * 32);
+  });
   return buf;
 }
 
@@ -131,6 +139,49 @@ export class NulliusClient {
   /** Expose the underlying RPC server for direct use in frontend signing flows. */
   getServer(): SorobanRpc.Server {
     return this.server;
+  }
+
+  /**
+   * Build an unsigned XDR transaction to submit a reputation proof via Freighter.
+   * Returns the unsigned XDR string — caller signs it and submits via server.sendTransaction().
+   *
+   * This is the preferred path for browser-based proof submission where the
+   * private key is held by Freighter and never exposed to the SDK.
+   */
+  async buildSubmitProofTransaction(
+    walletAddress: string,
+    bundle: ProofBundle
+  ): Promise<string> {
+    requireValidAddress(walletAddress, "wallet address");
+
+    const account = await this.server.getAccount(walletAddress);
+
+    const proofABytes     = encodeG1(bundle.proof.pi_a);
+    const proofBBytes     = encodeG2(bundle.proof.pi_b);
+    const proofCBytes     = encodeG1(bundle.proof.pi_c);
+    const commitmentBytes = encodeScalar(bundle.publicSignals.commitment);
+
+    const contract = new Contract(CONTRACT_IDS.reputationRegistry);
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: NETWORK_PASSPHRASE,
+    })
+      .addOperation(
+        contract.call(
+          "submit_proof",
+          nativeToScVal(walletAddress,    { type: "address" }),
+          nativeToScVal(bundle.threshold, { type: "u32" }),
+          xdr.ScVal.scvBytes(proofABytes     as unknown as Buffer),
+          xdr.ScVal.scvBytes(proofBBytes     as unknown as Buffer),
+          xdr.ScVal.scvBytes(proofCBytes     as unknown as Buffer),
+          xdr.ScVal.scvBytes(commitmentBytes as unknown as Buffer),
+        )
+      )
+      .setTimeout(30)
+      .build();
+
+    const prepared = await this.server.prepareTransaction(tx);
+    return prepared.toXDR();
   }
 
   /** Submit a reputation proof to the registry contract using a keypair. */
@@ -243,6 +294,32 @@ export class NulliusClient {
     throw new Error("Failed to get quote");
   }
 
+  /** Get the maximum per-transaction payment limit for a wallet. */
+  async getLimit(walletAddress: string): Promise<bigint> {
+    requireValidAddress(walletAddress, "wallet address");
+    const contract = new Contract(CONTRACT_IDS.paymentGate);
+    const account  = await this.server.getAccount(walletAddress);
+
+    const tx = new TransactionBuilder(account, {
+      fee: BASE_FEE,
+      networkPassphrase: NETWORK_PASSPHRASE,
+    })
+      .addOperation(
+        contract.call(
+          "limit",
+          nativeToScVal(walletAddress, { type: "address" })
+        )
+      )
+      .setTimeout(30)
+      .build();
+
+    const result = await this.server.simulateTransaction(tx);
+    if (SorobanRpc.Api.isSimulationSuccess(result)) {
+      return scValToNative(result.result!.retval) as bigint;
+    }
+    throw new Error("Failed to get payment limit");
+  }
+
   /**
    * Build an unsigned XDR transaction for a token send via the payment gate.
    * The caller signs it with Freighter and submits via server.sendTransaction().
@@ -283,15 +360,28 @@ export class NulliusClient {
     return prepared.toXDR();
   }
 
-  private async waitForConfirmation(txHash: string, maxAttempts = 20): Promise<void> {
-    for (let i = 0; i < maxAttempts; i++) {
-      await new Promise((r) => setTimeout(r, 1500));
+  /**
+   * Poll for transaction confirmation with exponential backoff.
+   * Starts at 1 s, doubles each attempt (capped at 8 s), gives up after
+   * maxWaitMs total elapsed time (default 30 s).
+   */
+  private async waitForConfirmation(
+    txHash: string,
+    maxWaitMs = 30_000
+  ): Promise<void> {
+    const start   = Date.now();
+    let   delayMs = 1_000;
+
+    while (Date.now() - start < maxWaitMs) {
+      await new Promise((r) => setTimeout(r, delayMs));
+      delayMs = Math.min(delayMs * 2, 8_000); // cap at 8 s
+
       const status = await this.server.getTransaction(txHash);
       if (status.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS) return;
       if (status.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
         throw new Error(`Transaction failed on-chain: ${txHash}`);
       }
     }
-    throw new Error("Transaction confirmation timeout");
+    throw new Error(`Transaction confirmation timeout after ${maxWaitMs / 1000}s: ${txHash}`);
   }
 }
