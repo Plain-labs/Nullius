@@ -60,8 +60,17 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
       const client = new NulliusClient();
       const stroops = BigInt(Math.round(parseFloat(amount) * 10_000_000));
 
-      // Native XLM token address on Stellar testnet
-      const NATIVE_TOKEN = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+      // Native XLM token address — configurable via VITE_NATIVE_TOKEN env var.
+      // Falls back to the testnet wrapped-XLM address if not set.
+      const NATIVE_TOKEN =
+        (typeof import.meta !== "undefined" && (import.meta.env as Record<string, string | undefined>)["VITE_NATIVE_TOKEN"]) ||
+        "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
+
+      // Fee collector address — configurable via VITE_FEE_COLLECTOR env var.
+      // Defaults to the sender in demo mode (fees are circular / effectively zero).
+      const feeCollector =
+        (typeof import.meta !== "undefined" && (import.meta.env as Record<string, string | undefined>)["VITE_FEE_COLLECTOR"]) ||
+        walletAddress;
 
       // Build tx → sign via Freighter → submit
       const unsignedXdr = await client.buildSendTransaction(
@@ -69,7 +78,7 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
         recipient,
         NATIVE_TOKEN,
         stroops,
-        walletAddress // fee goes back to sender in demo; replace with treasury address
+        feeCollector
       );
 
       const signResult = await signTransaction(unsignedXdr, {

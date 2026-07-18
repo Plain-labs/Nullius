@@ -16,9 +16,10 @@ circuits/keys/verification_key.json
 .contract_addresses.json
 sdk/src/contract_ids.json
 
-# Environment
+# Environment — ignore real secrets, but track the example template
 .env
-.env.*
+.env.local
+.env.*.local
 
 # OS
 .DS_Store
