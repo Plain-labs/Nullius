@@ -99,67 +99,96 @@ export function ProofGenerator({ walletAddress, onProofVerified }: Props) {
 
   return (
     <div className="card">
-      <h2>Generate Reputation Proof</h2>
+      <h2 id="proof-form-heading">Generate Reputation Proof</h2>
       <p className="subtitle">
         Your inputs are processed entirely in your browser using zero-knowledge cryptography.
         None of this data is sent to any server.
       </p>
 
       {step !== "input" && step !== "error" && (
-        <div className="step-indicator">
-          <div className="step-spinner" />
+        <div
+          className="step-indicator"
+          role="status"
+          aria-live="polite"
+          aria-label={STEP_LABELS[step]}
+        >
+          <div className="step-spinner" aria-hidden="true" />
           <span>{STEP_LABELS[step]}</span>
         </div>
       )}
 
       {(step === "input" || step === "error") && (
         <>
-          <div className="form-grid">
+          <div
+            className="form-grid"
+            role="group"
+            aria-labelledby="proof-form-heading"
+          >
             <div className="field">
-              <label>Total transactions completed</label>
+              <label htmlFor="input-tx-count">Total transactions completed</label>
               <input
+                id="input-tx-count"
                 type="number"
                 min="0"
                 value={inputs.txCount || ""}
                 onChange={(e) => handleChange("txCount", e.target.value)}
                 placeholder="e.g. 42"
+                aria-describedby="score-preview-hint"
               />
             </div>
             <div className="field">
-              <label>Disputed / failed transactions</label>
+              <label htmlFor="input-dispute-count">Disputed / failed transactions</label>
               <input
+                id="input-dispute-count"
                 type="number"
                 min="0"
                 value={inputs.disputeCount || ""}
                 onChange={(e) => handleChange("disputeCount", e.target.value)}
                 placeholder="e.g. 1"
+                aria-describedby="score-preview-hint"
               />
             </div>
             <div className="field">
-              <label>Average wallet balance (XLM)</label>
+              <label htmlFor="input-avg-balance">Average wallet balance (XLM)</label>
               <input
+                id="input-avg-balance"
                 type="number"
                 min="0"
                 value={inputs.avgBalance || ""}
                 onChange={(e) => handleChange("avgBalance", e.target.value)}
                 placeholder="e.g. 500"
+                aria-describedby="score-preview-hint"
               />
             </div>
             <div className="field">
-              <label>Months wallet has been active</label>
+              <label htmlFor="input-months-active">Months wallet has been active</label>
               <input
+                id="input-months-active"
                 type="number"
                 min="0"
                 value={inputs.monthsActive || ""}
                 onChange={(e) => handleChange("monthsActive", e.target.value)}
                 placeholder="e.g. 8"
+                aria-describedby="score-preview-hint"
               />
             </div>
           </div>
 
           {/* Live score preview */}
-          <div className="score-preview">
-            <div className="score-bar-wrap">
+          <div
+            className="score-preview"
+            role="status"
+            aria-live="polite"
+            aria-label={`Estimated score: ${score} out of 100. Tier: ${tierNames[estimatedTier]}`}
+          >
+            <div
+              className="score-bar-wrap"
+              role="progressbar"
+              aria-valuenow={score}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Estimated reputation score"
+            >
               <div className="score-bar" style={{ width: `${score}%` }} />
             </div>
             <div className="score-meta">
@@ -167,21 +196,27 @@ export function ProofGenerator({ walletAddress, onProofVerified }: Props) {
               <span
                 className="tier-badge"
                 style={{ background: tierColors[estimatedTier] }}
+                aria-label={`Tier: ${tierNames[estimatedTier]}`}
               >
                 {tierNames[estimatedTier]}
               </span>
             </div>
-            <p className="score-note">
+            <p className="score-note" id="score-preview-hint">
               This estimate is never sent anywhere. The ZK proof will confirm it mathematically.
             </p>
           </div>
 
-          {error && <div className="error-box">{error}</div>}
+          {error && (
+            <div className="error-box" role="alert" aria-live="assertive">
+              {error}
+            </div>
+          )}
 
           <button
             className="btn-primary btn-full"
             onClick={handleGenerate}
             disabled={estimatedTier === 0}
+            aria-disabled={estimatedTier === 0}
           >
             {estimatedTier === 0
               ? "Score too low — increase your inputs"
@@ -191,7 +226,7 @@ export function ProofGenerator({ walletAddress, onProofVerified }: Props) {
       )}
 
       {step === "done" && (
-        <div className="success-box">
+        <div className="success-box" role="status" aria-live="polite">
           ✓ Proof submitted to Stellar testnet. Check "My Score" tab to see your tier.
         </div>
       )}
