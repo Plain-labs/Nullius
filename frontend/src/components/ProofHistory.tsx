@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TIER_LABELS } from "@nullius/sdk";
+import { TIER_LABELS, TIER_COLORS } from "@nullius/sdk";
 import type { Tier } from "@nullius/sdk";
 
 interface ProofRecord {
@@ -32,13 +32,6 @@ export function recordProof(tier: Tier, threshold: number, commitment: string): 
     // localStorage may be unavailable in some environments
   }
 }
-
-const TIER_COLORS: Record<Tier, string> = {
-  0: "#64748b", // Unverified — slate
-  1: "#b45309", // Bronze — amber-brown
-  2: "#94a3b8", // Silver — silver-slate
-  3: "#d97706", // Gold — amber
-};
 
 /**
  * Display a chronological list of ZK proof submissions for the current browser session.

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NulliusClient, TIER_LABELS } from "@nullius/sdk";
+import { NulliusClient, TIER_LABELS, TIER_COLORS } from "@nullius/sdk";
 import type { ProofBundle, Tier } from "@nullius/sdk";
 import { ProofHistory } from "./ProofHistory";
 
@@ -8,13 +8,6 @@ interface Props {
   latestProof: ProofBundle | null;
   tier: Tier;
 }
-
-const TIER_COLORS: Record<Tier, string> = {
-  0: "#64748b", // Unverified — slate
-  1: "#b45309", // Bronze — amber-brown
-  2: "#94a3b8", // Silver — silver-slate (distinct from unverified)
-  3: "#d97706", // Gold — amber
-};
 
 const TIER_BENEFITS: Record<Tier, string[]> = {
   0: ["Basic access only", "5.0% transaction fee", "Max 1,000 XLM/tx"],
