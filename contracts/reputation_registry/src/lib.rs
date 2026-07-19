@@ -368,10 +368,10 @@ mod tests {
         soroban_sdk::Bytes,
     ) {
         (
-            soroban_sdk::Bytes::from_slice(env, &[0u8; 64]),  // proof_a
+            soroban_sdk::Bytes::from_slice(env, &[0u8; 64]), // proof_a
             soroban_sdk::Bytes::from_slice(env, &[0u8; 128]), // proof_b
-            soroban_sdk::Bytes::from_slice(env, &[0u8; 64]),  // proof_c
-            soroban_sdk::Bytes::from_slice(env, &[0u8; 32]),  // commitment
+            soroban_sdk::Bytes::from_slice(env, &[0u8; 64]), // proof_c
+            soroban_sdk::Bytes::from_slice(env, &[0u8; 32]), // commitment
         )
     }
 
