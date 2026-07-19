@@ -1,5 +1,7 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, symbol_short, token, Address, Env, IntoVal, Symbol};
+use soroban_sdk::{
+    contract, contractevent, contractimpl, symbol_short, token, Address, Env, IntoVal, Symbol,
+};
 
 const REGISTRY_KEY: Symbol = symbol_short!("REGISTRY");
 
@@ -19,6 +21,18 @@ fn max_payment(tier: u32) -> i128 {
         1 => 10_000 * 10_000_000,
         _ => 1_000 * 10_000_000,
     }
+}
+
+/// Emitted when a payment is processed successfully.
+#[contractevent(topics = ["payment"])]
+pub struct PaymentEvent {
+    #[topic]
+    sender: Address,
+    #[topic]
+    recipient: Address,
+    amount: i128,
+    fee: i128,
+    tier: u32,
 }
 
 #[contract]
@@ -68,14 +82,17 @@ impl PaymentGate {
         }
         token.transfer(&sender, &recipient, &net);
 
-        env.events().publish(
-            (symbol_short!("payment"),),
-            (sender, recipient, amount, fee, tier),
-        );
+        PaymentEvent {
+            sender,
+            recipient,
+            amount,
+            fee,
+            tier,
+        }
+        .publish(&env);
     }
 
     /// Preview fee and net without executing. Returns (fee, net, tier).
-    #[allow(clippy::too_many_arguments)]
     pub fn quote(env: Env, wallet: Address, amount: i128) -> (i128, i128, u32) {
         let registry: Address = env.storage().instance().get(&REGISTRY_KEY).unwrap();
         let tier: u32 = env.invoke_contract(
@@ -102,10 +119,7 @@ impl PaymentGate {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{
-        testutils::{Address as _, AuthorizedFunction, AuthorizedInvocation},
-        Address, Env, IntoVal,
-    };
+    use soroban_sdk::{testutils::Address as _, Address, Env};
 
     // ----------------------------------------------------------------
     // Fee / limit unit tests (pure functions, no env needed)
@@ -168,7 +182,7 @@ mod tests {
     #[test]
     fn fee_calculation_gold_zero_rounds_correctly() {
         // 1 stroop Gold: fee = 1 * 30 / 10_000 = 0 (rounds down)
-        let fee = 1_i128 * fee_bps(3) / 10_000;
+        let fee = fee_bps(3) / 10_000;
         assert_eq!(fee, 0);
     }
 
@@ -189,31 +203,19 @@ mod tests {
     #[test]
     fn initialize_stores_registry() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, PaymentGate);
+        let contract_id = env.register(PaymentGate {}, ());
         let client = PaymentGateClient::new(&env, &contract_id);
 
         let registry = Address::generate(&env);
         client.initialize(&registry);
-
-        // Verify it stored correctly by checking double-init panics
-        let result = std::panic::catch_unwind(|| {
-            // A second initialize should panic
-            let env2 = Env::default();
-            let cid2 = env2.register_contract(None, PaymentGate);
-            let c2 = PaymentGateClient::new(&env2, &cid2);
-            let r2 = Address::generate(&env2);
-            c2.initialize(&r2);
-            c2.initialize(&r2); // second call must panic
-        });
-        // The second call inside the closure should have panicked
-        assert!(result.is_err(), "Double initialize should panic");
+        // First initialize succeeded; double-init is tested separately.
     }
 
     #[test]
     #[should_panic(expected = "Already initialized")]
     fn double_initialize_panics() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, PaymentGate);
+        let contract_id = env.register(PaymentGate {}, ());
         let client = PaymentGateClient::new(&env, &contract_id);
 
         let registry = Address::generate(&env);
@@ -225,17 +227,15 @@ mod tests {
     // quote() — simulation with mock registry
     // ----------------------------------------------------------------
 
-    /// A stub registry contract that always returns a fixed tier.
-    /// Registered in the test environment so cross-contract calls work.
+    /// A stub registry contract that always returns Silver (tier=2).
     mod mock_registry {
-        use soroban_sdk::{contract, contractimpl, Address, Env, IntoVal};
+        use soroban_sdk::{contract, contractimpl, Address, Env};
 
         #[contract]
         pub struct MockRegistry;
 
         #[contractimpl]
         impl MockRegistry {
-            /// Always returns Silver (2).
             pub fn get_tier(_env: Env, _wallet: Address) -> u32 {
                 2
             }
@@ -247,10 +247,8 @@ mod tests {
         let env = Env::default();
         env.mock_all_auths();
 
-        // Deploy mock registry that always returns Silver (tier=2)
-        let registry_id = env.register_contract(None, mock_registry::MockRegistry);
-
-        let gate_id = env.register_contract(None, PaymentGate);
+        let registry_id = env.register(mock_registry::MockRegistry {}, ());
+        let gate_id = env.register(PaymentGate {}, ());
         let client = PaymentGateClient::new(&env, &gate_id);
         client.initialize(&registry_id);
 
@@ -271,11 +269,12 @@ mod tests {
         let env = Env::default();
         env.mock_all_auths();
 
-        // We need a mock registry that returns 0 (Unverified).
         mod mock_unverified {
             use soroban_sdk::{contract, contractimpl, Address, Env};
+
             #[contract]
             pub struct MockUnverified;
+
             #[contractimpl]
             impl MockUnverified {
                 pub fn get_tier(_env: Env, _wallet: Address) -> u32 {
@@ -283,9 +282,9 @@ mod tests {
                 }
             }
         }
-        let registry_id = env.register_contract(None, mock_unverified::MockUnverified);
 
-        let gate_id = env.register_contract(None, PaymentGate);
+        let registry_id = env.register(mock_unverified::MockUnverified {}, ());
+        let gate_id = env.register(PaymentGate {}, ());
         let client = PaymentGateClient::new(&env, &gate_id);
         client.initialize(&registry_id);
 
@@ -310,15 +309,15 @@ mod tests {
         let env = Env::default();
         env.mock_all_auths();
 
-        let registry_id = env.register_contract(None, mock_registry::MockRegistry);
-        let gate_id = env.register_contract(None, PaymentGate);
+        let registry_id = env.register(mock_registry::MockRegistry {}, ());
+        let gate_id = env.register(PaymentGate {}, ());
         let client = PaymentGateClient::new(&env, &gate_id);
         client.initialize(&registry_id);
 
         let sender = Address::generate(&env);
         let recipient = Address::generate(&env);
         let collector = Address::generate(&env);
-        let token = Address::generate(&env); // placeholder; not called for amount=0
+        let token = Address::generate(&env);
         client.send(&sender, &recipient, &token, &0i128, &collector);
     }
 
@@ -329,8 +328,8 @@ mod tests {
         env.mock_all_auths();
 
         // Silver limit = 100_000 XLM = 1_000_000_000_000_000 stroops
-        let registry_id = env.register_contract(None, mock_registry::MockRegistry);
-        let gate_id = env.register_contract(None, PaymentGate);
+        let registry_id = env.register(mock_registry::MockRegistry {}, ());
+        let gate_id = env.register(PaymentGate {}, ());
         let client = PaymentGateClient::new(&env, &gate_id);
         client.initialize(&registry_id);
 

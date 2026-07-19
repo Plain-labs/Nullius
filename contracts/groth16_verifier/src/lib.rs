@@ -117,7 +117,7 @@ mod test {
     #[test]
     fn test_verify_rejects_zero_proof_meets_threshold_zero() {
         let env = Env::default();
-        let cid = env.register_contract(None, Groth16Verifier);
+        let cid = env.register(Groth16Verifier {}, ());
         let client = Groth16VerifierClient::new(&env, &cid);
 
         let mut inputs = Vec::new(&env);
@@ -132,7 +132,7 @@ mod test {
     #[test]
     fn test_verify_rejects_when_meets_threshold_is_not_one() {
         let env = Env::default();
-        let cid = env.register_contract(None, Groth16Verifier);
+        let cid = env.register(Groth16Verifier {}, ());
         let client = Groth16VerifierClient::new(&env, &cid);
 
         let mut two_bytes = [0u8; 32];
@@ -154,8 +154,8 @@ mod test {
         let one = one_s(&env);
         let bytes = one.to_array();
         assert_eq!(bytes[31], 1, "LSB should be 1");
-        for i in 0..31 {
-            assert_eq!(bytes[i], 0, "All high bytes should be zero");
+        for byte in bytes.iter().take(31) {
+            assert_eq!(*byte, 0, "All high bytes should be zero");
         }
     }
 }

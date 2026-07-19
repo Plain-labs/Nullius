@@ -1,5 +1,7 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, symbol_short, Address, Bytes, Env, Symbol, Vec};
+use soroban_sdk::{
+    contract, contractevent, contractimpl, symbol_short, Address, Bytes, Env, Symbol, Vec,
+};
 
 /// Score tiers stored as u32 — keeps ledger entries small.
 pub const TIER_UNVERIFIED: u32 = 0;
@@ -8,6 +10,13 @@ pub const TIER_SILVER: u32 = 2; // threshold >= 70
 pub const TIER_GOLD: u32 = 3; // threshold >= 85
 
 const VERIFIER_KEY: Symbol = symbol_short!("VERIFIER");
+
+/// Emitted when a wallet's reputation tier is set or upgraded.
+#[contractevent(topics = ["tier_set"])]
+pub struct TierSetEvent {
+    caller: Address,
+    tier: u32,
+}
 
 #[contract]
 pub struct ReputationRegistry;
@@ -93,7 +102,7 @@ impl ReputationRegistry {
             panic!("ZK proof verification failed");
         }
 
-        // Map threshold to tier
+        // Map threshold to tier — checked after ZK verification
         let tier: u32 = if threshold >= 85 {
             TIER_GOLD
         } else if threshold >= 70 {
@@ -110,8 +119,7 @@ impl ReputationRegistry {
             env.storage().persistent().set(&caller, &tier);
         }
 
-        env.events()
-            .publish((symbol_short!("tier_set"),), (caller, tier));
+        TierSetEvent { caller, tier }.publish(&env);
     }
 
     /// Get the current reputation tier for a wallet (0 = Unverified).
@@ -144,9 +152,9 @@ mod tests {
 
     #[test]
     fn tier_constants_ordered() {
-        assert!(TIER_UNVERIFIED < TIER_BRONZE);
-        assert!(TIER_BRONZE < TIER_SILVER);
-        assert!(TIER_SILVER < TIER_GOLD);
+        const { assert!(TIER_UNVERIFIED < TIER_BRONZE) };
+        const { assert!(TIER_BRONZE < TIER_SILVER) };
+        const { assert!(TIER_SILVER < TIER_GOLD) };
     }
 
     #[test]
@@ -165,7 +173,7 @@ mod tests {
     #[should_panic(expected = "Already initialized")]
     fn double_initialize_panics() {
         let env = Env::default();
-        let cid = env.register_contract(None, ReputationRegistry);
+        let cid = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &cid);
 
         let verifier = Address::generate(&env);
@@ -180,7 +188,7 @@ mod tests {
     #[test]
     fn get_tier_returns_unverified_by_default() {
         let env = Env::default();
-        let cid = env.register_contract(None, ReputationRegistry);
+        let cid = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &cid);
 
         let verifier = Address::generate(&env);
@@ -198,9 +206,8 @@ mod tests {
     #[test]
     fn tier_name_gold() {
         let env = Env::default();
-        let cid = env.register_contract(None, ReputationRegistry);
+        let cid = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &cid);
-
         let verifier = Address::generate(&env);
         client.initialize(&verifier);
 
@@ -211,9 +218,8 @@ mod tests {
     #[test]
     fn tier_name_silver() {
         let env = Env::default();
-        let cid = env.register_contract(None, ReputationRegistry);
+        let cid = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &cid);
-
         let verifier = Address::generate(&env);
         client.initialize(&verifier);
 
@@ -224,9 +230,8 @@ mod tests {
     #[test]
     fn tier_name_bronze() {
         let env = Env::default();
-        let cid = env.register_contract(None, ReputationRegistry);
+        let cid = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &cid);
-
         let verifier = Address::generate(&env);
         client.initialize(&verifier);
 
@@ -237,9 +242,8 @@ mod tests {
     #[test]
     fn tier_name_unverified() {
         let env = Env::default();
-        let cid = env.register_contract(None, ReputationRegistry);
+        let cid = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &cid);
-
         let verifier = Address::generate(&env);
         client.initialize(&verifier);
 
@@ -250,20 +254,14 @@ mod tests {
     #[test]
     fn tier_name_unknown_value() {
         let env = Env::default();
-        let cid = env.register_contract(None, ReputationRegistry);
+        let cid = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &cid);
-
         let verifier = Address::generate(&env);
         client.initialize(&verifier);
 
-        // Any value other than 1/2/3 should return "Unverified"
         let name = client.tier_name(&99u32);
         assert_eq!(name, soroban_sdk::String::from_str(&env, "Unverified"));
     }
-
-    // ----------------------------------------------------------------
-    // Threshold → tier mapping logic (tested through score boundary values)
-    // ----------------------------------------------------------------
 
     // ----------------------------------------------------------------
     // Byte-length validation in submit_proof
@@ -274,7 +272,7 @@ mod tests {
     fn submit_proof_rejects_short_proof_a() {
         let env = Env::default();
         env.mock_all_auths();
-        let cid = env.register_contract(None, ReputationRegistry);
+        let cid = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &cid);
         let dummy_verifier = Address::generate(&env);
         client.initialize(&dummy_verifier);
@@ -291,7 +289,7 @@ mod tests {
     fn submit_proof_rejects_short_proof_b() {
         let env = Env::default();
         env.mock_all_auths();
-        let cid = env.register_contract(None, ReputationRegistry);
+        let cid = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &cid);
         let dummy_verifier = Address::generate(&env);
         client.initialize(&dummy_verifier);
@@ -307,7 +305,7 @@ mod tests {
     fn submit_proof_rejects_bad_commitment_length() {
         let env = Env::default();
         env.mock_all_auths();
-        let cid = env.register_contract(None, ReputationRegistry);
+        let cid = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &cid);
         let dummy_verifier = Address::generate(&env);
         client.initialize(&dummy_verifier);
@@ -318,29 +316,19 @@ mod tests {
         client.submit_proof(&wallet, &85u32, &zero64, &zero128, &zero64, &bad_commitment);
     }
 
-    /// Verify that threshold 39 would be rejected (below Bronze minimum).
-    /// We test this by calling submit_proof with a dummy verifier; the panic
-    /// happens BEFORE calling the verifier when threshold < 40.
     #[test]
     #[should_panic(expected = "Threshold too low")]
     fn submit_proof_rejects_threshold_below_40() {
         let env = Env::default();
         env.mock_all_auths();
-
-        // Register a mock verifier that always returns true
-        // We use the same registry contract as a stand-in (it has no "verify" fn,
-        // but the threshold check happens first so it will never reach the call)
-        let cid = env.register_contract(None, ReputationRegistry);
+        let cid = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &cid);
-
         let dummy_verifier = Address::generate(&env);
         client.initialize(&dummy_verifier);
-
         let wallet = Address::generate(&env);
         let zero32 = soroban_sdk::Bytes::from_slice(&env, &[0u8; 32]);
         let zero64 = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]);
         let zero128 = soroban_sdk::Bytes::from_slice(&env, &[0u8; 128]);
-
         // threshold=39 must panic with "Threshold too low"
         client.submit_proof(&wallet, &39u32, &zero64, &zero128, &zero64, &zero32);
     }
@@ -353,8 +341,6 @@ mod tests {
         use soroban_sdk::{contract, contractimpl, BytesN, Env, Vec};
 
         /// Stub Groth16 verifier that always approves any proof.
-        /// Used to exercise the submit_proof success path without needing
-        /// a real Groth16 proof.
         #[contract]
         pub struct AlwaysTrueVerifier;
 
@@ -382,10 +368,10 @@ mod tests {
         soroban_sdk::Bytes,
     ) {
         (
-            soroban_sdk::Bytes::from_slice(env, &[0u8; 64]), // proof_a
+            soroban_sdk::Bytes::from_slice(env, &[0u8; 64]),  // proof_a
             soroban_sdk::Bytes::from_slice(env, &[0u8; 128]), // proof_b
-            soroban_sdk::Bytes::from_slice(env, &[0u8; 64]), // proof_c
-            soroban_sdk::Bytes::from_slice(env, &[0u8; 32]), // commitment
+            soroban_sdk::Bytes::from_slice(env, &[0u8; 64]),  // proof_c
+            soroban_sdk::Bytes::from_slice(env, &[0u8; 32]),  // commitment
         )
     }
 
@@ -393,16 +379,13 @@ mod tests {
     fn submit_proof_gold_sets_gold_tier() {
         let env = Env::default();
         env.mock_all_auths();
-
-        let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
-        let registry_id = env.register_contract(None, ReputationRegistry);
+        let verifier_id = env.register(mock_verifier::AlwaysTrueVerifier {}, ());
+        let registry_id = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &registry_id);
         client.initialize(&verifier_id);
-
         let wallet = Address::generate(&env);
         let (pa, pb, pc, cm) = make_proof_bytes(&env);
         client.submit_proof(&wallet, &85u32, &pa, &pb, &pc, &cm);
-
         assert_eq!(client.get_tier(&wallet), TIER_GOLD);
     }
 
@@ -410,16 +393,13 @@ mod tests {
     fn submit_proof_silver_sets_silver_tier() {
         let env = Env::default();
         env.mock_all_auths();
-
-        let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
-        let registry_id = env.register_contract(None, ReputationRegistry);
+        let verifier_id = env.register(mock_verifier::AlwaysTrueVerifier {}, ());
+        let registry_id = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &registry_id);
         client.initialize(&verifier_id);
-
         let wallet = Address::generate(&env);
         let (pa, pb, pc, cm) = make_proof_bytes(&env);
         client.submit_proof(&wallet, &70u32, &pa, &pb, &pc, &cm);
-
         assert_eq!(client.get_tier(&wallet), TIER_SILVER);
     }
 
@@ -427,16 +407,13 @@ mod tests {
     fn submit_proof_bronze_sets_bronze_tier() {
         let env = Env::default();
         env.mock_all_auths();
-
-        let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
-        let registry_id = env.register_contract(None, ReputationRegistry);
+        let verifier_id = env.register(mock_verifier::AlwaysTrueVerifier {}, ());
+        let registry_id = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &registry_id);
         client.initialize(&verifier_id);
-
         let wallet = Address::generate(&env);
         let (pa, pb, pc, cm) = make_proof_bytes(&env);
         client.submit_proof(&wallet, &40u32, &pa, &pb, &pc, &cm);
-
         assert_eq!(client.get_tier(&wallet), TIER_BRONZE);
     }
 
@@ -444,12 +421,10 @@ mod tests {
     fn submit_proof_upgrade_allowed() {
         let env = Env::default();
         env.mock_all_auths();
-
-        let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
-        let registry_id = env.register_contract(None, ReputationRegistry);
+        let verifier_id = env.register(mock_verifier::AlwaysTrueVerifier {}, ());
+        let registry_id = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &registry_id);
         client.initialize(&verifier_id);
-
         let wallet = Address::generate(&env);
         let (pa, pb, pc, cm) = make_proof_bytes(&env);
 
@@ -466,12 +441,10 @@ mod tests {
     fn submit_proof_downgrade_not_allowed() {
         let env = Env::default();
         env.mock_all_auths();
-
-        let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
-        let registry_id = env.register_contract(None, ReputationRegistry);
+        let verifier_id = env.register(mock_verifier::AlwaysTrueVerifier {}, ());
+        let registry_id = env.register(ReputationRegistry {}, ());
         let client = ReputationRegistryClient::new(&env, &registry_id);
         client.initialize(&verifier_id);
-
         let wallet = Address::generate(&env);
         let (pa, pb, pc, cm) = make_proof_bytes(&env);
 
