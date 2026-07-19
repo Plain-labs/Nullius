@@ -2,6 +2,7 @@
 Live Link: https://proxima-beryl.vercel.app/
 
 Contract Address:
+
 "groth16Verifier": "CBRRLMJZ7ZIL5MUVJFEVDKEGQCYBEOWYJ4DZZ6Z7UMMJYNQBJ7U7OWN2",
 
   "reputationRegistry": "CAAGXWZJO5GKWKR6VG2NMXHRK7VJKATPAFWNOMGJRYVK63KUFR32VXLN",
