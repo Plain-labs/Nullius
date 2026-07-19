@@ -1,13 +1,11 @@
 #![no_std]
-use soroban_sdk::{
-    contract, contractimpl, symbol_short, Address, Bytes, Env, Symbol, Vec,
-};
+use soroban_sdk::{contract, contractimpl, symbol_short, Address, Bytes, Env, Symbol, Vec};
 
 /// Score tiers stored as u32 — keeps ledger entries small.
 pub const TIER_UNVERIFIED: u32 = 0;
-pub const TIER_BRONZE: u32     = 1; // threshold >= 40
-pub const TIER_SILVER: u32     = 2; // threshold >= 70
-pub const TIER_GOLD: u32       = 3; // threshold >= 85
+pub const TIER_BRONZE: u32 = 1; // threshold >= 40
+pub const TIER_SILVER: u32 = 2; // threshold >= 70
+pub const TIER_GOLD: u32 = 3; // threshold >= 85
 
 const VERIFIER_KEY: Symbol = symbol_short!("VERIFIER");
 
@@ -82,7 +80,8 @@ impl ReputationRegistry {
         let verified: bool = env.invoke_contract(
             &verifier,
             &symbol_short!("verify"),
-            soroban_sdk::vec![&env,
+            soroban_sdk::vec![
+                &env,
                 proof_a.into(),
                 proof_b.into(),
                 proof_c.into(),
@@ -111,24 +110,25 @@ impl ReputationRegistry {
             env.storage().persistent().set(&caller, &tier);
         }
 
-        env.events().publish(
-            (symbol_short!("tier_set"),),
-            (caller, tier),
-        );
+        env.events()
+            .publish((symbol_short!("tier_set"),), (caller, tier));
     }
 
     /// Get the current reputation tier for a wallet (0 = Unverified).
     pub fn get_tier(env: Env, wallet: Address) -> u32 {
-        env.storage().persistent().get(&wallet).unwrap_or(TIER_UNVERIFIED)
+        env.storage()
+            .persistent()
+            .get(&wallet)
+            .unwrap_or(TIER_UNVERIFIED)
     }
 
     /// Human-readable tier name for frontend display.
     pub fn tier_name(env: Env, tier: u32) -> soroban_sdk::String {
         match tier {
-            TIER_GOLD   => soroban_sdk::String::from_str(&env, "Gold"),
+            TIER_GOLD => soroban_sdk::String::from_str(&env, "Gold"),
             TIER_SILVER => soroban_sdk::String::from_str(&env, "Silver"),
             TIER_BRONZE => soroban_sdk::String::from_str(&env, "Bronze"),
-            _           => soroban_sdk::String::from_str(&env, "Unverified"),
+            _ => soroban_sdk::String::from_str(&env, "Unverified"),
         }
     }
 }
@@ -145,16 +145,16 @@ mod tests {
     #[test]
     fn tier_constants_ordered() {
         assert!(TIER_UNVERIFIED < TIER_BRONZE);
-        assert!(TIER_BRONZE     < TIER_SILVER);
-        assert!(TIER_SILVER     < TIER_GOLD);
+        assert!(TIER_BRONZE < TIER_SILVER);
+        assert!(TIER_SILVER < TIER_GOLD);
     }
 
     #[test]
     fn tier_constants_values() {
         assert_eq!(TIER_UNVERIFIED, 0);
-        assert_eq!(TIER_BRONZE,     1);
-        assert_eq!(TIER_SILVER,     2);
-        assert_eq!(TIER_GOLD,       3);
+        assert_eq!(TIER_BRONZE, 1);
+        assert_eq!(TIER_SILVER, 2);
+        assert_eq!(TIER_GOLD, 3);
     }
 
     // ----------------------------------------------------------------
@@ -278,11 +278,11 @@ mod tests {
         let client = ReputationRegistryClient::new(&env, &cid);
         let dummy_verifier = Address::generate(&env);
         client.initialize(&dummy_verifier);
-        let wallet     = Address::generate(&env);
-        let bad_proof  = soroban_sdk::Bytes::from_slice(&env, &[0u8; 32]); // too short
-        let zero64     = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]);
-        let zero128    = soroban_sdk::Bytes::from_slice(&env, &[0u8; 128]);
-        let zero32     = soroban_sdk::Bytes::from_slice(&env, &[0u8; 32]);
+        let wallet = Address::generate(&env);
+        let bad_proof = soroban_sdk::Bytes::from_slice(&env, &[0u8; 32]); // too short
+        let zero64 = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]);
+        let zero128 = soroban_sdk::Bytes::from_slice(&env, &[0u8; 128]);
+        let zero32 = soroban_sdk::Bytes::from_slice(&env, &[0u8; 32]);
         client.submit_proof(&wallet, &85u32, &bad_proof, &zero128, &zero64, &zero32);
     }
 
@@ -295,10 +295,10 @@ mod tests {
         let client = ReputationRegistryClient::new(&env, &cid);
         let dummy_verifier = Address::generate(&env);
         client.initialize(&dummy_verifier);
-        let wallet     = Address::generate(&env);
-        let zero64     = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]);
-        let bad_proof  = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]); // should be 128
-        let zero32     = soroban_sdk::Bytes::from_slice(&env, &[0u8; 32]);
+        let wallet = Address::generate(&env);
+        let zero64 = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]);
+        let bad_proof = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]); // should be 128
+        let zero32 = soroban_sdk::Bytes::from_slice(&env, &[0u8; 32]);
         client.submit_proof(&wallet, &85u32, &zero64, &bad_proof, &zero64, &zero32);
     }
 
@@ -311,9 +311,9 @@ mod tests {
         let client = ReputationRegistryClient::new(&env, &cid);
         let dummy_verifier = Address::generate(&env);
         client.initialize(&dummy_verifier);
-        let wallet         = Address::generate(&env);
-        let zero64         = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]);
-        let zero128        = soroban_sdk::Bytes::from_slice(&env, &[0u8; 128]);
+        let wallet = Address::generate(&env);
+        let zero64 = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]);
+        let zero128 = soroban_sdk::Bytes::from_slice(&env, &[0u8; 128]);
         let bad_commitment = soroban_sdk::Bytes::from_slice(&env, &[0u8; 16]); // too short
         client.submit_proof(&wallet, &85u32, &zero64, &zero128, &zero64, &bad_commitment);
     }
@@ -336,20 +336,13 @@ mod tests {
         let dummy_verifier = Address::generate(&env);
         client.initialize(&dummy_verifier);
 
-        let wallet  = Address::generate(&env);
-        let zero32  = soroban_sdk::Bytes::from_slice(&env, &[0u8; 32]);
-        let zero64  = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]);
+        let wallet = Address::generate(&env);
+        let zero32 = soroban_sdk::Bytes::from_slice(&env, &[0u8; 32]);
+        let zero64 = soroban_sdk::Bytes::from_slice(&env, &[0u8; 64]);
         let zero128 = soroban_sdk::Bytes::from_slice(&env, &[0u8; 128]);
 
         // threshold=39 must panic with "Threshold too low"
-        client.submit_proof(
-            &wallet,
-            &39u32,
-            &zero64,
-            &zero128,
-            &zero64,
-            &zero32,
-        );
+        client.submit_proof(&wallet, &39u32, &zero64, &zero128, &zero64, &zero32);
     }
 
     // ----------------------------------------------------------------
@@ -357,9 +350,7 @@ mod tests {
     // ----------------------------------------------------------------
 
     mod mock_verifier {
-        use soroban_sdk::{
-            contract, contractimpl, BytesN, Env, Vec,
-        };
+        use soroban_sdk::{contract, contractimpl, BytesN, Env, Vec};
 
         /// Stub Groth16 verifier that always approves any proof.
         /// Used to exercise the submit_proof success path without needing
@@ -382,17 +373,19 @@ mod tests {
     }
 
     /// Helper to build correct-length proof bytes for submit_proof calls.
-    fn make_proof_bytes(env: &Env) -> (
+    fn make_proof_bytes(
+        env: &Env,
+    ) -> (
         soroban_sdk::Bytes,
         soroban_sdk::Bytes,
         soroban_sdk::Bytes,
         soroban_sdk::Bytes,
     ) {
         (
-            soroban_sdk::Bytes::from_slice(env, &[0u8; 64]),   // proof_a
-            soroban_sdk::Bytes::from_slice(env, &[0u8; 128]),  // proof_b
-            soroban_sdk::Bytes::from_slice(env, &[0u8; 64]),   // proof_c
-            soroban_sdk::Bytes::from_slice(env, &[0u8; 32]),   // commitment
+            soroban_sdk::Bytes::from_slice(env, &[0u8; 64]), // proof_a
+            soroban_sdk::Bytes::from_slice(env, &[0u8; 128]), // proof_b
+            soroban_sdk::Bytes::from_slice(env, &[0u8; 64]), // proof_c
+            soroban_sdk::Bytes::from_slice(env, &[0u8; 32]), // commitment
         )
     }
 
@@ -403,7 +396,7 @@ mod tests {
 
         let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
         let registry_id = env.register_contract(None, ReputationRegistry);
-        let client      = ReputationRegistryClient::new(&env, &registry_id);
+        let client = ReputationRegistryClient::new(&env, &registry_id);
         client.initialize(&verifier_id);
 
         let wallet = Address::generate(&env);
@@ -420,7 +413,7 @@ mod tests {
 
         let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
         let registry_id = env.register_contract(None, ReputationRegistry);
-        let client      = ReputationRegistryClient::new(&env, &registry_id);
+        let client = ReputationRegistryClient::new(&env, &registry_id);
         client.initialize(&verifier_id);
 
         let wallet = Address::generate(&env);
@@ -437,7 +430,7 @@ mod tests {
 
         let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
         let registry_id = env.register_contract(None, ReputationRegistry);
-        let client      = ReputationRegistryClient::new(&env, &registry_id);
+        let client = ReputationRegistryClient::new(&env, &registry_id);
         client.initialize(&verifier_id);
 
         let wallet = Address::generate(&env);
@@ -454,7 +447,7 @@ mod tests {
 
         let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
         let registry_id = env.register_contract(None, ReputationRegistry);
-        let client      = ReputationRegistryClient::new(&env, &registry_id);
+        let client = ReputationRegistryClient::new(&env, &registry_id);
         client.initialize(&verifier_id);
 
         let wallet = Address::generate(&env);
@@ -476,7 +469,7 @@ mod tests {
 
         let verifier_id = env.register_contract(None, mock_verifier::AlwaysTrueVerifier);
         let registry_id = env.register_contract(None, ReputationRegistry);
-        let client      = ReputationRegistryClient::new(&env, &registry_id);
+        let client = ReputationRegistryClient::new(&env, &registry_id);
         client.initialize(&verifier_id);
 
         let wallet = Address::generate(&env);
@@ -488,6 +481,10 @@ mod tests {
 
         // Attempt downgrade to Bronze — tier must stay Gold
         client.submit_proof(&wallet, &40u32, &pa, &pb, &pc, &cm);
-        assert_eq!(client.get_tier(&wallet), TIER_GOLD, "Downgrade must be silently ignored");
+        assert_eq!(
+            client.get_tier(&wallet),
+            TIER_GOLD,
+            "Downgrade must be silently ignored"
+        );
     }
 }
