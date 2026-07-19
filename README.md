@@ -3,7 +3,9 @@ Live Link: https://proxima-beryl.vercel.app/
 
 Contract Address:
 "groth16Verifier": "CBRRLMJZ7ZIL5MUVJFEVDKEGQCYBEOWYJ4DZZ6Z7UMMJYNQBJ7U7OWN2",
+
   "reputationRegistry": "CAAGXWZJO5GKWKR6VG2NMXHRK7VJKATPAFWNOMGJRYVK63KUFR32VXLN",
+  
   "paymentGate": "CCPGLJ5EBCARCCIC55Q7MTSMOUTBYTUZ6OGXRV3EA4ZXUDQPJSGCBMBV",
 
 > Prove your financial trustworthiness on Stellar without revealing any underlying data.
