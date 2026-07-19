@@ -92,9 +92,7 @@ impl Groth16Verifier {
         let g1_points = Vec::from_array(&env, [proof_a_neg, vk_alpha, vk_x, proof_c_pt]);
         let g2_points = Vec::from_array(&env, [proof_b_pt, vk_beta, vk_gamma, vk_delta]);
 
-        let pairing_ok = bn254.pairing_check(g1_points, g2_points);
-
-        pairing_ok
+        bn254.pairing_check(g1_points, g2_points)
     }
 }
 
