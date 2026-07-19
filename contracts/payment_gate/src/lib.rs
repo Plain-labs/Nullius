@@ -1,25 +1,23 @@
 #![no_std]
-use soroban_sdk::{
-    contract, contractimpl, symbol_short, token, Address, Env, IntoVal, Symbol,
-};
+use soroban_sdk::{contract, contractimpl, symbol_short, token, Address, Env, IntoVal, Symbol};
 
 const REGISTRY_KEY: Symbol = symbol_short!("REGISTRY");
 
 fn fee_bps(tier: u32) -> i128 {
     match tier {
-        3 => 30,   // Gold:       0.3%
-        2 => 100,  // Silver:     1.0%
-        1 => 200,  // Bronze:     2.0%
-        _ => 500,  // Unverified: 5.0%
+        3 => 30,  // Gold:       0.3%
+        2 => 100, // Silver:     1.0%
+        1 => 200, // Bronze:     2.0%
+        _ => 500, // Unverified: 5.0%
     }
 }
 
 fn max_payment(tier: u32) -> i128 {
     match tier {
         3 => 1_000_000 * 10_000_000,
-        2 =>   100_000 * 10_000_000,
-        1 =>    10_000 * 10_000_000,
-        _ =>     1_000 * 10_000_000,
+        2 => 100_000 * 10_000_000,
+        1 => 10_000 * 10_000_000,
+        _ => 1_000 * 10_000_000,
     }
 }
 
@@ -54,14 +52,20 @@ impl PaymentGate {
             soroban_sdk::vec![&env, sender.clone().into_val(&env)],
         );
 
-        if amount <= 0 { panic!("Amount must be positive"); }
-        if amount > max_payment(tier) { panic!("Amount exceeds tier limit"); }
+        if amount <= 0 {
+            panic!("Amount must be positive");
+        }
+        if amount > max_payment(tier) {
+            panic!("Amount exceeds tier limit");
+        }
 
         let fee = amount * fee_bps(tier) / 10_000;
         let net = amount - fee;
 
         let token = token::Client::new(&env, &token_id);
-        if fee > 0 { token.transfer(&sender, &fee_collector, &fee); }
+        if fee > 0 {
+            token.transfer(&sender, &fee_collector, &fee);
+        }
         token.transfer(&sender, &recipient, &net);
 
         env.events().publish(
@@ -157,8 +161,8 @@ mod tests {
         let amount: i128 = 1_000_000_000;
         let fee = amount * fee_bps(2) / 10_000;
         let net = amount - fee;
-        assert_eq!(fee, 10_000_000);   // 1 XLM
-        assert_eq!(net, 990_000_000);  // 99 XLM
+        assert_eq!(fee, 10_000_000); // 1 XLM
+        assert_eq!(net, 990_000_000); // 99 XLM
     }
 
     #[test]
@@ -247,7 +251,7 @@ mod tests {
         let registry_id = env.register_contract(None, mock_registry::MockRegistry);
 
         let gate_id = env.register_contract(None, PaymentGate);
-        let client  = PaymentGateClient::new(&env, &gate_id);
+        let client = PaymentGateClient::new(&env, &gate_id);
         client.initialize(&registry_id);
 
         let wallet = Address::generate(&env);
@@ -270,15 +274,19 @@ mod tests {
         // We need a mock registry that returns 0 (Unverified).
         mod mock_unverified {
             use soroban_sdk::{contract, contractimpl, Address, Env};
-            #[contract] pub struct MockUnverified;
-            #[contractimpl] impl MockUnverified {
-                pub fn get_tier(_env: Env, _wallet: Address) -> u32 { 0 }
+            #[contract]
+            pub struct MockUnverified;
+            #[contractimpl]
+            impl MockUnverified {
+                pub fn get_tier(_env: Env, _wallet: Address) -> u32 {
+                    0
+                }
             }
         }
         let registry_id = env.register_contract(None, mock_unverified::MockUnverified);
 
         let gate_id = env.register_contract(None, PaymentGate);
-        let client  = PaymentGateClient::new(&env, &gate_id);
+        let client = PaymentGateClient::new(&env, &gate_id);
         client.initialize(&registry_id);
 
         let wallet = Address::generate(&env);
@@ -303,14 +311,14 @@ mod tests {
         env.mock_all_auths();
 
         let registry_id = env.register_contract(None, mock_registry::MockRegistry);
-        let gate_id     = env.register_contract(None, PaymentGate);
-        let client      = PaymentGateClient::new(&env, &gate_id);
+        let gate_id = env.register_contract(None, PaymentGate);
+        let client = PaymentGateClient::new(&env, &gate_id);
         client.initialize(&registry_id);
 
-        let sender    = Address::generate(&env);
+        let sender = Address::generate(&env);
         let recipient = Address::generate(&env);
         let collector = Address::generate(&env);
-        let token     = Address::generate(&env); // placeholder; not called for amount=0
+        let token = Address::generate(&env); // placeholder; not called for amount=0
         client.send(&sender, &recipient, &token, &0i128, &collector);
     }
 
@@ -322,14 +330,14 @@ mod tests {
 
         // Silver limit = 100_000 XLM = 1_000_000_000_000_000 stroops
         let registry_id = env.register_contract(None, mock_registry::MockRegistry);
-        let gate_id     = env.register_contract(None, PaymentGate);
-        let client      = PaymentGateClient::new(&env, &gate_id);
+        let gate_id = env.register_contract(None, PaymentGate);
+        let client = PaymentGateClient::new(&env, &gate_id);
         client.initialize(&registry_id);
 
-        let sender    = Address::generate(&env);
+        let sender = Address::generate(&env);
         let recipient = Address::generate(&env);
         let collector = Address::generate(&env);
-        let token     = Address::generate(&env);
+        let token = Address::generate(&env);
 
         // Silver max = 100_000 * 10_000_000 stroops; send one stroop over
         let over_limit: i128 = 100_000 * 10_000_000 + 1;

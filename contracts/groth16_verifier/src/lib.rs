@@ -42,7 +42,7 @@ impl Groth16Verifier {
         // Verification key — TODO: replace with real values after setup
         // ----------------------------------------------------------------
         let vk_alpha = Bn254G1Affine::from_bytes(BytesN::from_array(&env, &vk_bytes::VK_ALPHA));
-        let vk_beta  = Bn254G2Affine::from_bytes(BytesN::from_array(&env, &vk_bytes::VK_BETA));
+        let vk_beta = Bn254G2Affine::from_bytes(BytesN::from_array(&env, &vk_bytes::VK_BETA));
         let vk_gamma = Bn254G2Affine::from_bytes(BytesN::from_array(&env, &vk_bytes::VK_GAMMA));
         let vk_delta = Bn254G2Affine::from_bytes(BytesN::from_array(&env, &vk_bytes::VK_DELTA));
 
@@ -60,33 +60,23 @@ impl Groth16Verifier {
         let s2 = Bn254Fr::from_bytes(public_inputs.get(2).unwrap());
 
         let ic_points = Vec::from_array(&env, [vk_ic_1, vk_ic_2, vk_ic_3]);
-        let scalars   = Vec::from_array(&env, [s0, s1, s2]);
+        let scalars = Vec::from_array(&env, [s0, s1, s2]);
 
-        let msm  = bn254.g1_msm(ic_points, scalars);
+        let msm = bn254.g1_msm(ic_points, scalars);
         let vk_x = bn254.g1_add(&vk_ic_0, &msm);
 
         // ----------------------------------------------------------------
         // 2. Pairing check:
         //    e(-π_a, π_b) · e(α, β) · e(vk_x, γ) · e(π_c, δ) == 1
         // ----------------------------------------------------------------
-        let proof_a_pt  = Bn254G1Affine::from_bytes(proof_a);
-        let proof_b_pt  = Bn254G2Affine::from_bytes(proof_b);
-        let proof_c_pt  = Bn254G1Affine::from_bytes(proof_c);
+        let proof_a_pt = Bn254G1Affine::from_bytes(proof_a);
+        let proof_b_pt = Bn254G2Affine::from_bytes(proof_b);
+        let proof_c_pt = Bn254G1Affine::from_bytes(proof_c);
 
         let proof_a_neg = -proof_a_pt; // Neg impl: (X, -Y)
 
-        let g1_points = Vec::from_array(&env, [
-            proof_a_neg,
-            vk_alpha,
-            vk_x,
-            proof_c_pt,
-        ]);
-        let g2_points = Vec::from_array(&env, [
-            proof_b_pt,
-            vk_beta,
-            vk_gamma,
-            vk_delta,
-        ]);
+        let g1_points = Vec::from_array(&env, [proof_a_neg, vk_alpha, vk_x, proof_c_pt]);
+        let g2_points = Vec::from_array(&env, [proof_b_pt, vk_beta, vk_gamma, vk_delta]);
 
         let pairing_ok = bn254.pairing_check(g1_points, g2_points);
 
@@ -109,10 +99,16 @@ mod test {
     use super::*;
     use soroban_sdk::Env;
 
-    fn zero_g1(env: &Env) -> BytesN<64>  { BytesN::from_array(env, &[0u8; 64])  }
-    fn zero_g2(env: &Env) -> BytesN<128> { BytesN::from_array(env, &[0u8; 128]) }
-    fn zero_s(env: &Env)  -> BytesN<32>  { BytesN::from_array(env, &[0u8; 32])  }
-    fn one_s(env: &Env)   -> BytesN<32>  {
+    fn zero_g1(env: &Env) -> BytesN<64> {
+        BytesN::from_array(env, &[0u8; 64])
+    }
+    fn zero_g2(env: &Env) -> BytesN<128> {
+        BytesN::from_array(env, &[0u8; 128])
+    }
+    fn zero_s(env: &Env) -> BytesN<32> {
+        BytesN::from_array(env, &[0u8; 32])
+    }
+    fn one_s(env: &Env) -> BytesN<32> {
         let mut b = [0u8; 32];
         b[31] = 1;
         BytesN::from_array(env, &b)
@@ -146,7 +142,7 @@ mod test {
         let mut inputs = Vec::new(&env);
         inputs.push_back(zero_s(&env)); // threshold
         inputs.push_back(zero_s(&env)); // commitment
-        inputs.push_back(two);          // meets_threshold = 2 → reject
+        inputs.push_back(two); // meets_threshold = 2 → reject
 
         let result = client.verify(&zero_g1(&env), &zero_g2(&env), &zero_g1(&env), &inputs);
         assert!(!result, "meets_threshold != 1 must be rejected");
