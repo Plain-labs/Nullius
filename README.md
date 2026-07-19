@@ -1,4 +1,4 @@
-# Nullius — ZK Reputation Layer built on Stellar
+# Nullius - ZK Reputation Layer built on Stellar
 Live Link: https://proxima-beryl.vercel.app/
 
 Contract Address:
