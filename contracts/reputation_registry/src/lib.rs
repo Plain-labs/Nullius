@@ -64,6 +64,11 @@ impl ReputationRegistry {
             panic!("commitment must be 32 bytes (scalar field element)");
         }
 
+        // Validate threshold range before making the expensive cross-contract call
+        if threshold < 40 {
+            panic!("Threshold too low — minimum is 40 (Bronze)");
+        }
+
         // Encode threshold as 32-byte big-endian field element
         let threshold_bytes = Bytes::from_slice(&env, &{
             let mut b = [0u8; 32];
@@ -102,15 +107,13 @@ impl ReputationRegistry {
             panic!("ZK proof verification failed");
         }
 
-        // Map threshold to tier — checked after ZK verification
+        // Map threshold to tier
         let tier: u32 = if threshold >= 85 {
             TIER_GOLD
         } else if threshold >= 70 {
             TIER_SILVER
-        } else if threshold >= 40 {
-            TIER_BRONZE
         } else {
-            panic!("Threshold too low — minimum is 40 (Bronze)");
+            TIER_BRONZE // threshold >= 40 already validated above
         };
 
         // Only allow upgrades, not downgrades

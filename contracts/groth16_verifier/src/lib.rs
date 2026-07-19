@@ -39,7 +39,21 @@ impl Groth16Verifier {
         let bn254 = env.crypto().bn254();
 
         // ----------------------------------------------------------------
-        // Verification key — TODO: replace with real values after setup
+        // 1. Enforce meets_threshold public input == field element 1.
+        //    Short-circuit before touching any curve bytes so tests can
+        //    verify this gate without needing valid BN254 curve points.
+        // ----------------------------------------------------------------
+        let one_bytes: BytesN<32> = {
+            let mut b = [0u8; 32];
+            b[31] = 1;
+            BytesN::from_array(&env, &b)
+        };
+        if public_inputs.get(2).unwrap() != one_bytes {
+            return false;
+        }
+
+        // ----------------------------------------------------------------
+        // 2. Load verification key — TODO: replace with real values after setup
         // ----------------------------------------------------------------
         let vk_alpha = Bn254G1Affine::from_bytes(BytesN::from_array(&env, &vk_bytes::VK_ALPHA));
         let vk_beta = Bn254G2Affine::from_bytes(BytesN::from_array(&env, &vk_bytes::VK_BETA));
@@ -53,7 +67,7 @@ impl Groth16Verifier {
         let vk_ic_3 = Bn254G1Affine::from_bytes(BytesN::from_array(&env, &vk_bytes::VK_IC_3));
 
         // ----------------------------------------------------------------
-        // 1. Compute vk_x = IC[0] + MSM(IC[1..3], public_inputs)
+        // 3. Compute vk_x = IC[0] + MSM(IC[1..3], public_inputs)
         // ----------------------------------------------------------------
         let s0 = Bn254Fr::from_bytes(public_inputs.get(0).unwrap());
         let s1 = Bn254Fr::from_bytes(public_inputs.get(1).unwrap());
@@ -66,7 +80,7 @@ impl Groth16Verifier {
         let vk_x = bn254.g1_add(&vk_ic_0, &msm);
 
         // ----------------------------------------------------------------
-        // 2. Pairing check:
+        // 4. Pairing check:
         //    e(-π_a, π_b) · e(α, β) · e(vk_x, γ) · e(π_c, δ) == 1
         // ----------------------------------------------------------------
         let proof_a_pt = Bn254G1Affine::from_bytes(proof_a);
@@ -80,17 +94,7 @@ impl Groth16Verifier {
 
         let pairing_ok = bn254.pairing_check(g1_points, g2_points);
 
-        // ----------------------------------------------------------------
-        // 3. Enforce meets_threshold public input == field element 1
-        // ----------------------------------------------------------------
-        let one_bytes: BytesN<32> = {
-            let mut b = [0u8; 32];
-            b[31] = 1;
-            BytesN::from_array(&env, &b)
-        };
-        let threshold_met = public_inputs.get(2).unwrap() == one_bytes;
-
-        pairing_ok && threshold_met
+        pairing_ok
     }
 }
 
