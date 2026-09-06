@@ -10,7 +10,7 @@ Contract Address:
 
 > Prove your financial trustworthiness on Stellar without revealing any underlying data.
 
-Built for **Stellar Hacks: Real-World ZK** (June 2025).
+Actively developed on Stellar testnet, with mainnet deployment and full wallet integration planned — see the Roadmap below for current status.
 
 ## What it does
 
@@ -181,11 +181,12 @@ All arithmetic uses integer scaling (factor 700) to avoid division in ZK constra
 - Only the score tier (Bronze/Silver/Gold) is stored on-chain
 - No third party sees the underlying data at any point
 
-## Known limitations (hackathon scope)
+## Roadmap
 
-- Trusted setup uses Hermez ceremony ptau — production would need a project-specific ceremony
-- Financial data is self-reported; production would integrate Stellar Horizon API or an oracle
-- Freighter integration uses a demo keypair path in places — full signTransaction flow is wired but needs final testing
+- [ ] Full Freighter `signTransaction` flow — replace remaining demo keypair paths and complete testing
+- [ ] Replace self-reported financial data with real Stellar Horizon API integration
+- [ ] Project-specific Groth16 trusted setup ceremony (currently uses the shared Hermez ceremony ptau)
+- [ ] Mainnet deployment and security review
 
 ## License
 
