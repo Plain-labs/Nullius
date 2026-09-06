@@ -420,15 +420,30 @@ mod tests {
         // Soroban's transaction execution model is atomic: the unhandled panic in the second transfer
         // rolls back all state mutations in the invocation, including the first transfer.
         let result = client.try_send(&sender, &recipient, &sac.address(), &amount, &collector);
-        assert!(result.is_err(), "Expected send to fail when net transfer cannot be satisfied");
+        assert!(
+            result.is_err(),
+            "Expected send to fail when net transfer cannot be satisfied"
+        );
 
         // Verify state is completely rolled back:
         // 1. Fee collector did NOT keep the fee.
-        assert_eq!(token_client.balance(&collector), 0, "Fee collector should have 0 balance due to rollback");
+        assert_eq!(
+            token_client.balance(&collector),
+            0,
+            "Fee collector should have 0 balance due to rollback"
+        );
         // 2. Sender did NOT lose the fee.
-        assert_eq!(token_client.balance(&sender), 10, "Sender balance must be restored due to rollback");
+        assert_eq!(
+            token_client.balance(&sender),
+            10,
+            "Sender balance must be restored due to rollback"
+        );
         // 3. Recipient received nothing.
-        assert_eq!(token_client.balance(&recipient), 0, "Recipient must have 0 balance");
+        assert_eq!(
+            token_client.balance(&recipient),
+            0,
+            "Recipient must have 0 balance"
+        );
     }
 
     /// Mock token contract that allows setting a recipient that fails upon transfer
@@ -519,12 +534,27 @@ mod tests {
         // 1. Fee transfer to collector succeeds.
         // 2. Net transfer to recipient panics with "Recipient cannot receive tokens...".
         let result = client.try_send(&sender, &recipient, &token_id, &amount, &collector);
-        assert!(result.is_err(), "Expected send to fail when recipient transfer panics");
+        assert!(
+            result.is_err(),
+            "Expected send to fail when recipient transfer panics"
+        );
 
         // Verify atomic rollback across entire invocation:
         // Even though fee transfer succeeded first, host rolled back collector balance to 0.
-        assert_eq!(failing_token_client.balance(&collector), 0, "Fee transfer must be rolled back");
-        assert_eq!(failing_token_client.balance(&sender), 1_000, "Sender balance must remain intact");
-        assert_eq!(failing_token_client.balance(&recipient), 0, "Recipient must not have received tokens");
+        assert_eq!(
+            failing_token_client.balance(&collector),
+            0,
+            "Fee transfer must be rolled back"
+        );
+        assert_eq!(
+            failing_token_client.balance(&sender),
+            1_000,
+            "Sender balance must remain intact"
+        );
+        assert_eq!(
+            failing_token_client.balance(&recipient),
+            0,
+            "Recipient must not have received tokens"
+        );
     }
 }
