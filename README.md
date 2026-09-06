@@ -1,6 +1,5 @@
 # Nullius - ZK Reputation Layer built on Stellar
-Live Link: https://proxima-beryl.vercel.app/
-
+Live Link: https://nullius-taupe.vercel.app/
 Contract Address:
 
 "groth16Verifier": "CBRRLMJZ7ZIL5MUVJFEVDKEGQCYBEOWYJ4DZZ6Z7UMMJYNQBJ7U7OWN2",
