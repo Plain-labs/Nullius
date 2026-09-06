@@ -11,12 +11,13 @@ pub const TIER_GOLD: u32 = 3; // threshold >= 85
 
 const VERIFIER_KEY: Symbol = symbol_short!("VERIFIER");
 
-/// Minimum ledgers before a persistent entry becomes eligible for archival.
-/// ~100 000 ledgers ≈ 6 months at 5 s/ledger.
-const MIN_TTL: u32 = 100_000;
+/// If a persistent entry has fewer than this many ledgers of TTL remaining,
+/// extend_ttl will bump it up to MAX_TTL.
+/// ~3 156 000 ledgers ≈ 6 months at 5 s/ledger.
+const MIN_TTL: u32 = 3_156_000;
 /// Maximum ledgers the host is asked to extend an entry to on each touch.
-/// ~200 000 ledgers ≈ 1 year at 5 s/ledger.
-const MAX_TTL: u32 = 200_000;
+/// ~6 312 000 ledgers ≈ 1 year at 5 s/ledger.
+const MAX_TTL: u32 = 6_312_000;
 
 /// Emitted when a wallet's reputation tier is set or upgraded.
 #[contractevent(topics = ["tier_set"])]
