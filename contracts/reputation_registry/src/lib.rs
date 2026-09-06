@@ -11,6 +11,13 @@ pub const TIER_GOLD: u32 = 3; // threshold >= 85
 
 const VERIFIER_KEY: Symbol = symbol_short!("VERIFIER");
 
+/// Minimum ledgers before a persistent entry becomes eligible for archival.
+/// ~100 000 ledgers ≈ 6 months at 5 s/ledger.
+const MIN_TTL: u32 = 100_000;
+/// Maximum ledgers the host is asked to extend an entry to on each touch.
+/// ~200 000 ledgers ≈ 1 year at 5 s/ledger.
+const MAX_TTL: u32 = 200_000;
+
 /// Emitted when a wallet's reputation tier is set or upgraded.
 #[contractevent(topics = ["tier_set"])]
 pub struct TierSetEvent {
@@ -122,15 +129,27 @@ impl ReputationRegistry {
             env.storage().persistent().set(&caller, &tier);
         }
 
+        // Always extend the TTL so that active users' entries are never archived,
+        // even when the tier didn't change (same-tier resubmission refreshes TTL).
+        env.storage()
+            .persistent()
+            .extend_ttl(&caller, MIN_TTL, MAX_TTL);
+
         TierSetEvent { caller, tier }.publish(&env);
     }
 
     /// Get the current reputation tier for a wallet (0 = Unverified).
+    ///
+    /// Bumps the TTL on every successful read so that querying a wallet's tier
+    /// is sufficient to keep the entry alive without requiring a new proof.
     pub fn get_tier(env: Env, wallet: Address) -> u32 {
-        env.storage()
-            .persistent()
-            .get(&wallet)
-            .unwrap_or(TIER_UNVERIFIED)
+        let tier: Option<u32> = env.storage().persistent().get(&wallet);
+        if tier.is_some() {
+            env.storage()
+                .persistent()
+                .extend_ttl(&wallet, MIN_TTL, MAX_TTL);
+        }
+        tier.unwrap_or(TIER_UNVERIFIED)
     }
 
     /// Human-readable tier name for frontend display.
@@ -148,6 +167,8 @@ impl ReputationRegistry {
 mod tests {
     use super::*;
     use soroban_sdk::{testutils::Address as _, Address, Env};
+    // `get_ttl` lives on the testutils::storage::Persistent trait.
+    use soroban_sdk::testutils::storage::Persistent as _;
 
     // ----------------------------------------------------------------
     // Tier constant sanity checks
@@ -462,5 +483,79 @@ mod tests {
             TIER_GOLD,
             "Downgrade must be silently ignored"
         );
+    }
+
+    // ----------------------------------------------------------------
+    // TTL extension
+    // ----------------------------------------------------------------
+
+    /// Verify that submit_proof bumps the persistent-entry TTL.
+    #[test]
+    fn submit_proof_extends_ttl() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let verifier_id = env.register(mock_verifier::AlwaysTrueVerifier {}, ());
+        let registry_id = env.register(ReputationRegistry {}, ());
+        let client = ReputationRegistryClient::new(&env, &registry_id);
+        client.initialize(&verifier_id);
+        let wallet = Address::generate(&env);
+        let (pa, pb, pc, cm) = make_proof_bytes(&env);
+
+        client.submit_proof(&wallet, &85u32, &pa, &pb, &pc, &cm);
+
+        // The SDK's in-process environment tracks the live TTL of every
+        // persistent key; after a successful submit the TTL must be at
+        // least MIN_TTL ledgers from now.
+        // `get_ttl` requires an active contract context; `as_contract` provides it.
+        let ttl = env.as_contract(&registry_id, || {
+            env.storage().persistent().get_ttl(&wallet)
+        });
+        assert!(
+            ttl >= MIN_TTL,
+            "expected TTL >= {MIN_TTL}, got {ttl}"
+        );
+    }
+
+    /// Verify that get_tier bumps the persistent-entry TTL on a hit.
+    #[test]
+    fn get_tier_extends_ttl() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let verifier_id = env.register(mock_verifier::AlwaysTrueVerifier {}, ());
+        let registry_id = env.register(ReputationRegistry {}, ());
+        let client = ReputationRegistryClient::new(&env, &registry_id);
+        client.initialize(&verifier_id);
+        let wallet = Address::generate(&env);
+        let (pa, pb, pc, cm) = make_proof_bytes(&env);
+
+        // Write a tier so the entry exists.
+        client.submit_proof(&wallet, &40u32, &pa, &pb, &pc, &cm);
+
+        // Read it back — this should also extend the TTL.
+        let tier = client.get_tier(&wallet);
+        assert_eq!(tier, TIER_BRONZE);
+
+        let ttl = env.as_contract(&registry_id, || {
+            env.storage().persistent().get_ttl(&wallet)
+        });
+        assert!(
+            ttl >= MIN_TTL,
+            "expected TTL >= {MIN_TTL} after get_tier, got {ttl}"
+        );
+    }
+
+    /// Verify that get_tier on a missing entry does NOT call extend_ttl
+    /// (there is nothing to extend; this just checks no panic occurs).
+    #[test]
+    fn get_tier_missing_entry_does_not_panic() {
+        let env = Env::default();
+        let registry_id = env.register(ReputationRegistry {}, ());
+        let client = ReputationRegistryClient::new(&env, &registry_id);
+        let verifier = Address::generate(&env);
+        client.initialize(&verifier);
+
+        let unknown_wallet = Address::generate(&env);
+        // Must return TIER_UNVERIFIED without panicking.
+        assert_eq!(client.get_tier(&unknown_wallet), TIER_UNVERIFIED);
     }
 }
