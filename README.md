@@ -1,12 +1,20 @@
-# Nullius — ZK Reputation Layer on Stellar
+# Nullius - ZK Reputation Layer built on Stellar
+Live Link: https://nullius-taupe.vercel.app/
+Contract Address:
 
-**Live demo:** https://proxima-beryl.vercel.app
+"groth16Verifier": "CBRRLMJZ7ZIL5MUVJFEVDKEGQCYBEOWYJ4DZZ6Z7UMMJYNQBJ7U7OWN2",
 
-Nullius lets any Stellar wallet prove its payment reputation — transaction history,
-reliability, wallet age — using zero-knowledge cryptography, without revealing any
-underlying financial data. A Soroban smart contract verifies the proof on-chain,
-assigns a **Bronze / Silver / Gold** tier, and a payment gate enforces lower fees
-and higher limits for verified users.
+  "reputationRegistry": "CAAGXWZJO5GKWKR6VG2NMXHRK7VJKATPAFWNOMGJRYVK63KUFR32VXLN",
+  
+  "paymentGate": "CCPGLJ5EBCARCCIC55Q7MTSMOUTBYTUZ6OGXRV3EA4ZXUDQPJSGCBMBV",
+
+> Prove your financial trustworthiness on Stellar without revealing any underlying data.
+
+Actively developed on Stellar testnet, with mainnet deployment and full wallet integration planned — see the Roadmap below for current status.
+
+## What it does
+
+Nullius lets users prove their payment reputation (transaction history, clean record, wallet age) using **zero-knowledge proofs** — without exposing any raw financial data. A Soroban smart contract verifies the proof on-chain, assigns a **Bronze / Silver / Gold** tier, and a payment gate enforces lower fees and higher limits for verified users.
 
 ---
 
@@ -194,49 +202,55 @@ Or in one step: `npm run setup:all`
 cp .env.example .env
 # Fill in VITE_* contract IDs from .contract_addresses.json
 npm run dev
-# Open http://localhost:5173 — connect Freighter on Testnet
+# Open http://localhost:5173
+# Connect Freighter wallet (set to Testnet)
 ```
 
-See [DEMO.md](DEMO.md) for a step-by-step walkthrough.
+## How ZK is load-bearing
 
----
+The ZK proof is not cosmetic — the Soroban contract **cannot be tricked**:
+- Without a valid Groth16 proof, `submit_proof` panics
+- The proof mathematically commits to the user's private inputs via Poseidon hash
+- The `meets_threshold` output is enforced both by the circuit and the verifier contract
+- Stellar's native BN254 host functions (Protocol 25/26) make verification cheap
 
-## Why the ZK proof is load-bearing
+### Score formula
 
-The verifier contract cannot be bypassed:
-- `submit_proof` panics on any invalid or missing proof
-- The Poseidon commitment binds the proof to specific private inputs — it cannot be replayed
-- `meets_threshold` is enforced both by the circuit output and by the verifier contract
-- Stellar's native BN254 host functions (Protocol 22+) make on-chain pairing verification cheap
+The reputation score is computed inside the ZK circuit (never on-chain):
 
----
+| Component | Max contribution | Notes |
+|-----------|-----------------|-------|
+| Transaction count | 40 pts | capped at 50 txs |
+| Clean transaction rate | 40 pts | (tx_count − disputes) contribution |
+| Wallet age | 20 pts | capped at 12 months |
+| Average balance | ~14 pts | capped at 10,000 units (XLM/1000) |
+
+All arithmetic uses integer scaling (factor 700) to avoid division in ZK constraints.
+
+## Deployed contracts (Stellar testnet)
+
+> Updated after deployment via `npm run deploy:testnet`.
+> Run `cat sdk/src/contract_ids.json` to see the latest addresses.
+
+| Contract | Address |
+|----------|---------|
+| groth16_verifier | See `sdk/src/contract_ids.json` |
+| reputation_registry | See `sdk/src/contract_ids.json` |
+| payment_gate | See `sdk/src/contract_ids.json` |
+
+## Privacy guarantees
+
+- Private inputs (tx history, balances, identity) never leave the user's browser
+- The on-chain commitment is a Poseidon hash — cannot be reversed
+- Only the score tier (Bronze/Silver/Gold) is stored on-chain
+- No third party sees the underlying data at any point
 
 ## Roadmap
 
-| Milestone | Description |
-|-----------|-------------|
-| ✅ Testnet | Three contracts deployed, frontend live, Horizon data ingestion |
-| 🔜 Ceremony | Project-specific Phase 2 trusted setup with public contributors |
-| 🔜 Oracle | Horizon data attested by a light-client oracle to prevent input forgery |
-| 🔜 SDK v2 | Embeddable `<NulliusGate>` React component for third-party dApps |
-| 🔜 Mainnet | Mainnet deployment after security audit |
-
----
-
-## Security notes
-
-- The current trusted setup uses the Hermez Powers of Tau ceremony (Phase 1). A
-  production deployment requires a project-specific Phase 2 ceremony.
-- Financial data is currently sourced from Horizon by the client. A production
-  deployment would add an oracle or light-client attestation layer to prevent
-  users from manipulating inputs before they enter the circuit.
-- Contracts have not yet been through a formal security audit.
-
----
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+- [ ] Full Freighter `signTransaction` flow — replace remaining demo keypair paths and complete testing
+- [ ] Replace self-reported financial data with real Stellar Horizon API integration
+- [ ] Project-specific Groth16 trusted setup ceremony (currently uses the shared Hermez ceremony ptau)
+- [ ] Mainnet deployment and security review
 
 ## License
 

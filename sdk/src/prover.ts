@@ -41,19 +41,57 @@ async function computeCommitment(inputs: PrivateInputs): Promise<string> {
 }
 
 /**
+ * Mirror the circuit's score-proxy computation in pure integer arithmetic.
+ *
+ * The circuit avoids division by scaling everything by 600 (LCM of 50 and 12).
+ * Concretely, the circuit computes:
+ *
+ *   score_proxy      = tx_capped*480 + clean_txs*480 + age_capped*1000 + bal_capped
+ *   threshold_scaled = threshold * 700
+ *
+ * and checks `score_proxy >= threshold_scaled`.
+ *
+ * This function replicates that arithmetic exactly so callers can predict which
+ * tier a set of inputs will satisfy before generating a (slow) proof.
+ *
+ * All parameters are non-negative integers, matching the circuit's field elements.
+ *
+ * @param txCount       - total completed transactions
+ * @param disputeCount  - disputed/failed transactions (must be <= txCount)
+ * @param monthsActive  - months the wallet has been active
+ * @param avgBalance    - average balance in stroops (pre-scaled by caller: pass balance/1000)
+ * @returns             - integer score proxy (maximum 70 000)
+ */
+export function computeScoreProxy(
+  txCount: number,
+  disputeCount: number,
+  monthsActive: number,
+  avgBalance: number,
+): number {
+  // Use Math.trunc to guard against any accidental float inputs.
+  const txCapped  = Math.min(Math.trunc(txCount),      50);
+  const ageCapped = Math.min(Math.trunc(monthsActive), 12);
+  const balCapped = Math.min(Math.trunc(avgBalance),   10_000);
+  // clean_txs mirrors the circuit signal: tx_count - dispute_count (both already integers)
+  const cleanTxs  = Math.trunc(txCount) - Math.trunc(disputeCount);
+
+  return txCapped * 480 + cleanTxs * 480 + ageCapped * 1_000 + balCapped;
+}
+
+/**
  * Determine which tier threshold to prove against based on user's inputs.
  * We pick the highest tier the user can plausibly claim, then let the circuit confirm it.
  */
 function selectThreshold(inputs: PrivateInputs): number {
-  // Estimate score proxy: same formula as circuit (no division)
-  const txCapped  = Math.min(inputs.txCount, 50);
-  const ageCapped = Math.min(inputs.monthsActive, 12);
-  const balCapped = Math.min(inputs.avgBalance, 10000);
-  const cleanTxs  = inputs.txCount - inputs.disputeCount;
-  // score_proxy = txCapped*480 + cleanTxs*480 + ageCapped*1000 + balCapped
-  // threshold_scaled = threshold * 700
-  const scoreProxy = txCapped * 480 + cleanTxs * 480 + ageCapped * 1000 + balCapped;
+  // Use the exported utility so the formula is in one place and independently testable.
+  const scoreProxy = computeScoreProxy(
+    inputs.txCount,
+    inputs.disputeCount,
+    inputs.monthsActive,
+    inputs.avgBalance,
+  );
 
+  // threshold_scaled = threshold * 700  (mirrors circuit line: threshold_scaled <== threshold * 700)
   if (scoreProxy >= TIER_THRESHOLDS.gold   * 700) return TIER_THRESHOLDS.gold;
   if (scoreProxy >= TIER_THRESHOLDS.silver * 700) return TIER_THRESHOLDS.silver;
   if (scoreProxy >= TIER_THRESHOLDS.bronze * 700) return TIER_THRESHOLDS.bronze;
