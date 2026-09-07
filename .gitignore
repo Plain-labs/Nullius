@@ -6,6 +6,10 @@ dist/
 target/
 build/
 
+# Rust incremental build cache
+**/.fingerprint/
+**/incremental/
+
 # Circuit artifacts (generated — not source)
 circuits/build/
 circuits/keys/*.ptau
@@ -20,6 +24,9 @@ sdk/src/contract_ids.json
 .env
 .env.local
 .env.*.local
+
+# Lock files — track Cargo.lock (app, not lib), skip bun.lock (generated)
+bun.lock
 
 # OS
 .DS_Store

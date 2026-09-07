@@ -1,101 +1,126 @@
 # Contributing to Nullius
 
-Thanks for your interest in contributing. This document covers how to set up the development environment, the project conventions, and the pull request process.
+Thanks for your interest in contributing. This document covers how to get set up,
+the project conventions, and what to check before opening a PR.
 
-## Project structure
+---
+
+## Repository structure
 
 ```
 nullius/
-├── circuits/        Circom ZK circuit + trusted setup scripts
+├── circuits/        Circom ZK circuit + setup scripts
 ├── contracts/       Soroban smart contracts (Rust)
-│   ├── groth16_verifier/
-│   ├── reputation_registry/
-│   └── payment_gate/
-├── sdk/             TypeScript client library
-├── frontend/        React + Vite web app
-└── scripts/         Deployment and testing utilities
+├── sdk/             TypeScript SDK (@nullius/sdk)
+├── frontend/        React + Vite frontend
+└── scripts/         Deployment + VK extraction scripts
 ```
 
-## Prerequisites
+---
 
-| Tool | Version | Notes |
-|------|---------|-------|
-| Rust | stable  | `rustup target add wasm32-unknown-unknown` |
-| Node.js | ≥ 20 | |
-| stellar-cli | latest | `cargo install --locked stellar-cli --features opt` |
-| Circom | 2.x | `npm install -g circom` |
-| snarkjs | latest | `npm install -g snarkjs` |
+## Development setup
 
-## Setting up locally
+### Contracts (Rust)
 
 ```bash
-git clone https://github.com/your-org/nullius
-cd nullius
-npm install
-```
+# Install Rust + wasm target
+rustup target add wasm32-unknown-unknown
 
-## Running contract tests
-
-```bash
+# Run all contract tests
 cargo test --all
+
+# Check formatting
+cargo fmt --all -- --check
+
+# Run Clippy (zero warnings policy)
+cargo clippy --all-targets -- -D warnings
+
+# Build WASM artifacts
+cargo build --target wasm32-unknown-unknown --release
 ```
 
-For a specific contract:
+### SDK + Frontend (TypeScript)
 
 ```bash
-cargo test -p payment-gate
-cargo test -p reputation-registry
-cargo test -p groth16-verifier
-```
+npm install
 
-## Running the frontend
+# Build SDK
+npm run build:sdk
 
-```bash
+# Type-check frontend
+npx tsc --noEmit --project frontend/tsconfig.json
+
+# Build frontend
+npm run build:frontend
+
+# Start dev server
 npm run dev
-# Opens http://localhost:5173
-# Connect Freighter wallet set to Testnet
 ```
 
-The frontend requires compiled circuit artifacts (`circuits/build/`) and a
-`sdk/src/contract_ids.json` from a deployment. Without them the UI will show
-placeholder states — this is expected during development.
+### ZK circuit
 
-## Code style
+```bash
+# Requires circom + snarkjs installed globally
+npm install -g circom snarkjs
 
-**Rust**
-- Format with `cargo fmt`
-- No Clippy warnings: `cargo clippy --all-targets -- -D warnings`
-- All public functions must have doc comments (`///`)
+npm run circuit:compile   # compile → r1cs + wasm
+npm run circuit:setup     # trusted setup → zkey + verification_key.json
+npm run vk:all            # extract VK bytes into contracts/groth16_verifier/src/vk_bytes.rs
+```
 
-**TypeScript / React**
-- Follow the existing ESLint + TypeScript strict config
-- Component files use PascalCase; hooks use `use` prefix
-- No `any` types without a comment explaining why
+---
+
+## Code conventions
+
+### Rust
+- `no_std` in all contracts — no standard library in Soroban WASM
+- Every public contract function must have at least one test
+- Panic messages must be user-readable (they surface in simulation errors)
+- No `unwrap()` in production paths — use explicit panics with messages
+- Run `cargo fmt` before committing
+
+### TypeScript
+- Strict mode enabled — no `any` without a comment explaining why
+- SDK functions validate inputs and throw descriptive errors before any RPC call
+- Browser-only APIs (crypto, fetch) are accessed via `window.*` or guarded with
+  `typeof` checks so the SDK stays usable in Node test scripts
+- No secrets or private keys in frontend code
+
+### Git
+- Branch naming: `feat/`, `fix/`, `chore/`, `docs/`
+- Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/)
+- Keep commits focused — one logical change per commit
+
+---
 
 ## Pull request checklist
 
-- [ ] `cargo fmt` + `cargo clippy` pass with no warnings
+Before opening a PR, confirm:
+
+- [ ] `cargo fmt --all -- --check` passes
+- [ ] `cargo clippy --all-targets -- -D warnings` passes
 - [ ] `cargo test --all` passes
-- [ ] New contract logic has at least one unit test
-- [ ] TypeScript compiles with `tsc --noEmit`
-- [ ] PR description explains *what* and *why*, not just *what*
+- [ ] `npx tsc --noEmit --project frontend/tsconfig.json` passes
+- [ ] New contract functions have tests
+- [ ] No new `unwrap()` in production contract paths
+- [ ] `.env` or secret values are not committed
 
-## Circuit changes
+---
 
-If you modify `circuits/reputation_score.circom`:
+## Contract upgrade policy
 
-1. Re-run `npm run circuit:compile` and `npm run circuit:setup`
-2. Re-run `npm run vk:all` to regenerate the Rust VK bytes
-3. Re-run `npm run contracts:build` to rebuild the verifier
-4. Update tests if the public signal layout changed
+The three Soroban contracts do not currently implement upgrade paths. Any change
+to contract logic requires a redeployment and a new contract address. Update
+`sdk/src/contract_ids.json` and `.contract_addresses.json` after deploying.
+
+---
 
 ## Reporting issues
 
-Please open a GitHub Issue with:
+Open a GitHub issue with:
+- What you expected to happen
+- What actually happened
 - Steps to reproduce
-- Expected vs actual behaviour
-- Relevant logs or error messages
+- Relevant environment (browser, OS, Node version, Rust toolchain)
 
-## License
-
-By contributing you agree your work will be released under the [MIT License](LICENSE).
+For security issues, do not open a public issue — email the maintainer directly.
