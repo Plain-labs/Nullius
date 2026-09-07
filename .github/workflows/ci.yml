@@ -171,9 +171,8 @@ jobs:
         run: npm install
 
       - name: Audit npm dependencies
-        # --audit-level=high: fail only on high/critical vulns, not moderate
+        # --audit-level=high: fail only on high/critical vulnerabilities
         run: npm audit --audit-level=high
-        continue-on-error: true   # advisory only for now; remove to enforce
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -183,4 +182,3 @@ jobs:
 
       - name: Audit Cargo dependencies
         run: cargo audit
-        continue-on-error: true   # advisory only for now; remove to enforce
