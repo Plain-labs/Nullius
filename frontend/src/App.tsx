@@ -4,14 +4,26 @@ import { ProofGenerator } from "./components/ProofGenerator";
 import { ReputationCard } from "./components/ReputationCard";
 import { PaymentWidget } from "./components/PaymentWidget";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { LandingPage } from "./components/LandingPage";
 import type { ProofBundle, Tier } from "@nullius/sdk";
 
 type Tab = "prove" | "score" | "pay";
 
 export default function App() {
-  const { connected, publicKey, loading, error: walletError, connect } = useFreighter();
-  const [activeTab, setActiveTab] = useState<Tab>("prove");
-  const [latestProof, setLatestProof]   = useState<ProofBundle | null>(null);
+  const {
+    connected,
+    publicKey,
+    loading,
+    status,
+    wrongNetwork,
+    network,
+    error: walletError,
+    connect,
+    disconnect,
+  } = useFreighter();
+
+  const [activeTab, setActiveTab]     = useState<Tab>("prove");
+  const [latestProof, setLatestProof] = useState<ProofBundle | null>(null);
   const [verifiedTier, setVerifiedTier] = useState<Tier>(0);
 
   const tabs: { id: Tab; label: string }[] = [
@@ -19,6 +31,56 @@ export default function App() {
     { id: "score", label: "My Score" },
     { id: "pay",   label: "Send Payment" },
   ];
+
+  // ----------------------------------------------------------------
+  // Header wallet button — three states: loading, connected, disconnected
+  // ----------------------------------------------------------------
+  const walletButton = () => {
+    if (loading) {
+      return (
+        <button className="btn-primary" disabled>
+          <span className="wallet-spinner" aria-hidden="true" />
+          Checking wallet…
+        </button>
+      );
+    }
+
+    if (connected && publicKey) {
+      return (
+        <div className="wallet-connected-group">
+          <div className="wallet-pill" title={publicKey}>
+            <span className="wallet-dot" />
+            {publicKey.slice(0, 6)}…{publicKey.slice(-4)}
+          </div>
+          <button
+            className="btn-disconnect"
+            onClick={disconnect}
+            title="Disconnect wallet"
+            aria-label="Disconnect wallet"
+          >
+            ✕
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <button
+        className="btn-primary"
+        onClick={connect}
+        disabled={status === "connecting"}
+      >
+        {status === "connecting" ? (
+          <>
+            <span className="wallet-spinner" aria-hidden="true" />
+            Connecting…
+          </>
+        ) : (
+          "Connect Freighter"
+        )}
+      </button>
+    );
+  };
 
   return (
     <div className="app">
@@ -29,56 +91,35 @@ export default function App() {
             <span className="logo-text">Nullius</span>
             <span className="logo-tag">ZK Reputation on Stellar</span>
           </div>
-
-          {!connected ? (
-            <button className="btn-primary" onClick={connect} disabled={loading}>
-              {loading ? "Checking wallet…" : "Connect Freighter"}
-            </button>
-          ) : (
-            <div className="wallet-pill">
-              <span className="wallet-dot" />
-              {publicKey?.slice(0, 6)}…{publicKey?.slice(-4)}
-            </div>
-          )}
+          {walletButton()}
         </div>
       </header>
 
-      {!connected ? (
-        <div className="connect-screen">
-          <div className="connect-card">
-            <div className="connect-icon">⬡</div>
-            <h1>Private Reputation. Public Proof.</h1>
-            <p>
-              Prove your financial trustworthiness on Stellar using zero-knowledge
-              cryptography — without revealing any of your actual financial data.
-            </p>
-            <ul className="feature-list">
-              <li>✓ Your data never leaves your browser</li>
-              <li>✓ Proof verified on Stellar testnet</li>
-              <li>✓ Lower fees for higher tiers</li>
-            </ul>
-            <button className="btn-primary btn-lg" onClick={connect}>
-              Connect Freighter Wallet
-            </button>
-            {walletError && (
-              <div className="error-box" style={{ marginTop: 16, textAlign: "left" }}>
-                {walletError}
-              </div>
-            )}
-            <p className="connect-hint">
-              Don't have Freighter?{" "}
-              <a href="https://freighter.app" target="_blank" rel="noreferrer">
-                Install it here →
-              </a>
-            </p>
-          </div>
+      {/* Wrong network banner — shown above everything when on mainnet/other */}
+      {wrongNetwork && (
+        <div className="network-warning-banner" role="alert">
+          ⚠ Freighter is connected to{" "}
+          <strong>{network ?? "an unknown network"}</strong>. Switch to{" "}
+          <strong>Testnet</strong> in Freighter settings to use Nullius.
         </div>
-      ) : (
+      )}
+
+      {/* ---- Not connected: full landing page ---- */}
+      {!connected && !wrongNetwork ? (
+        <LandingPage
+          onConnect={connect}
+          connecting={status === "connecting"}
+          error={walletError}
+        />
+      ) : connected && publicKey ? (
+        /* ---- Connected and on correct network: main app ---- */
         <main className="main">
-          <nav className="tabs">
+          <nav className="tabs" role="tablist" aria-label="App sections">
             {tabs.map((t) => (
               <button
                 key={t.id}
+                role="tab"
+                aria-selected={activeTab === t.id}
                 className={`tab ${activeTab === t.id ? "tab--active" : ""}`}
                 onClick={() => setActiveTab(t.id)}
               >
@@ -87,11 +128,11 @@ export default function App() {
             ))}
           </nav>
 
-          <div className="tab-content">
+          <div className="tab-content" role="tabpanel">
             {activeTab === "prove" && (
               <ErrorBoundary>
                 <ProofGenerator
-                  walletAddress={publicKey!}
+                  walletAddress={publicKey}
                   onProofVerified={(bundle, tier) => {
                     setLatestProof(bundle);
                     setVerifiedTier(tier);
@@ -103,7 +144,7 @@ export default function App() {
             {activeTab === "score" && (
               <ErrorBoundary>
                 <ReputationCard
-                  walletAddress={publicKey!}
+                  walletAddress={publicKey}
                   latestProof={latestProof}
                   tier={verifiedTier}
                 />
@@ -112,18 +153,22 @@ export default function App() {
             {activeTab === "pay" && (
               <ErrorBoundary>
                 <PaymentWidget
-                  walletAddress={publicKey!}
+                  walletAddress={publicKey}
                   currentTier={verifiedTier}
                 />
               </ErrorBoundary>
             )}
           </div>
         </main>
-      )}
+      ) : null}
 
       <footer className="footer">
-        Built for Stellar Hacks: Real-World ZK · Open source ·{" "}
-        <a href="https://github.com/nullius-zk/nullius" target="_blank" rel="noreferrer">
+        Nullius — ZK Reputation on Stellar · Open source ·{" "}
+        <a
+          href="https://github.com/nullius-zk/nullius"
+          target="_blank"
+          rel="noreferrer"
+        >
           GitHub
         </a>
       </footer>
