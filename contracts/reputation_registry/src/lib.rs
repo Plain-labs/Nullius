@@ -508,13 +508,8 @@ mod tests {
         // persistent key; after a successful submit the TTL must be at
         // least MIN_TTL ledgers from now.
         // `get_ttl` requires an active contract context; `as_contract` provides it.
-        let ttl = env.as_contract(&registry_id, || {
-            env.storage().persistent().get_ttl(&wallet)
-        });
-        assert!(
-            ttl >= MIN_TTL,
-            "expected TTL >= {MIN_TTL}, got {ttl}"
-        );
+        let ttl = env.as_contract(&registry_id, || env.storage().persistent().get_ttl(&wallet));
+        assert!(ttl >= MIN_TTL, "expected TTL >= {MIN_TTL}, got {ttl}");
     }
 
     /// Verify that get_tier bumps the persistent-entry TTL on a hit.
@@ -536,9 +531,7 @@ mod tests {
         let tier = client.get_tier(&wallet);
         assert_eq!(tier, TIER_BRONZE);
 
-        let ttl = env.as_contract(&registry_id, || {
-            env.storage().persistent().get_ttl(&wallet)
-        });
+        let ttl = env.as_contract(&registry_id, || env.storage().persistent().get_ttl(&wallet));
         assert!(
             ttl >= MIN_TTL,
             "expected TTL >= {MIN_TTL} after get_tier, got {ttl}"
