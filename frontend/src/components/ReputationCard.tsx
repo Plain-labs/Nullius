@@ -81,7 +81,7 @@ export function ReputationCard({ walletAddress, latestProof, tier }: Props) {
           )}
 
           <div style={{ marginTop: 24 }}>
-            <ProofHistory />
+            <ProofHistory walletAddress={walletAddress} />
           </div>
         </>
       )}
