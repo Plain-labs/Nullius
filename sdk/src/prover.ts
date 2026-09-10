@@ -81,6 +81,8 @@ export function computeScoreProxy(
 /**
  * Determine which tier threshold to prove against based on user's inputs.
  * We pick the highest tier the user can plausibly claim, then let the circuit confirm it.
+ *
+ * @internal — Use selectTier() for the public API with a Tier return type.
  */
 function selectThreshold(inputs: PrivateInputs): number {
   // Use the exported utility so the formula is in one place and independently testable.
@@ -96,6 +98,47 @@ function selectThreshold(inputs: PrivateInputs): number {
   if (scoreProxy >= TIER_THRESHOLDS.silver * 700) return TIER_THRESHOLDS.silver;
   if (scoreProxy >= TIER_THRESHOLDS.bronze * 700) return TIER_THRESHOLDS.bronze;
   throw new Error("Score too low for any tier (minimum Bronze threshold is 40)");
+}
+
+/**
+ * Predict which tier a set of inputs will qualify for before proof generation.
+ *
+ * This function mirrors the exact integer arithmetic of the circuit, using
+ * computeScoreProxy() to calculate the score and comparing against tier
+ * thresholds with the same scaling factor (700) as the circuit.
+ *
+ * Tier boundaries (on the 0-100 score scale):
+ *   - Bronze: threshold = 40 → threshold_scaled = 28,000
+ *   - Silver: threshold = 70 → threshold_scaled = 49,000
+ *   - Gold:   threshold = 85 → threshold_scaled = 59,500
+ *
+ * @param inputs - Private financial data (txCount, disputeCount, monthsActive, avgBalance)
+ * @returns The highest tier the inputs qualify for, or 0 (Unverified) if below Bronze
+ *
+ * @example
+ * ```typescript
+ * const tier = selectTier({
+ *   txCount: 50,
+ *   disputeCount: 0,
+ *   monthsActive: 12,
+ *   avgBalance: 5000,
+ *   salt: "12345"
+ * });
+ * console.log(tier); // 3 (Gold)
+ * ```
+ */
+export function selectTier(inputs: Omit<PrivateInputs, "salt">): Tier {
+  const scoreProxy = computeScoreProxy(
+    inputs.txCount,
+    inputs.disputeCount,
+    inputs.monthsActive,
+    inputs.avgBalance,
+  );
+
+  if (scoreProxy >= TIER_THRESHOLDS.gold   * 700) return 3;
+  if (scoreProxy >= TIER_THRESHOLDS.silver * 700) return 2;
+  if (scoreProxy >= TIER_THRESHOLDS.bronze * 700) return 1;
+  return 0;
 }
 
 /**
