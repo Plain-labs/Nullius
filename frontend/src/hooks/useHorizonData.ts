@@ -96,15 +96,14 @@ export function useHorizonData() {
         `?limit=${PAGE_LIMIT}&order=desc&include_failed=true`;
 
       for (let page = 0; page < MAX_PAGES && nextUrl; page++) {
-        const txRes = await window.fetch(nextUrl);
+        const txRes: Response = await window.fetch(nextUrl);
         if (!txRes.ok) break;
 
-        const txPage = await txRes.json();
-        const records: Array<{
-          successful: boolean;
-          created_at: string;
-          fee_charged: string;
-        }> = txPage._embedded?.records ?? [];
+        const txPage: {
+          _embedded?: { records: Array<{ successful: boolean; created_at: string; fee_charged: string }> };
+          _links?: { next?: { href: string } };
+        } = await txRes.json();
+        const records = txPage._embedded?.records ?? [];
 
         if (records.length === 0) break;
 
@@ -123,7 +122,7 @@ export function useHorizonData() {
         }
 
         // Horizon cursored pagination
-        const nextLink = txPage._links?.next?.href ?? null;
+        const nextLink: string | null = txPage._links?.next?.href ?? null;
         nextUrl = nextLink !== nextUrl ? nextLink : null;
       }
 

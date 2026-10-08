@@ -28,6 +28,12 @@
   "dependencies": {
     "circomlib": "^2.0.5"
   },
+  "overrides": {
+    "toml": "5.0.0",
+    "underscore": "^1.13.8",
+    "elliptic": "^6.6.1",
+    "ws": "^8.21.3"
+  },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "4.62.2"
   }
