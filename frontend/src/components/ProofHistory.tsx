@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { TIER_LABELS, TIER_COLORS, CONTRACT_IDS } from "@nullius/sdk";
 import type { Tier } from "@nullius/sdk";
-import { SorobanRpc, xdr, scValToNative } from "@stellar/stellar-sdk";
+import { rpc, xdr, scValToNative } from "@stellar/stellar-sdk";
 
 interface ProofRecord {
   timestamp: number;
@@ -45,7 +45,7 @@ export function recordProof(tier: Tier, threshold: number, commitment: string): 
  * Fetch tier_set contract events from Soroban RPC for a given wallet address.
  */
 async function fetchChainEvents(walletAddress: string): Promise<ProofRecord[]> {
-  const server = new SorobanRpc.Server(RPC_URL);
+  const server = new rpc.Server(RPC_URL);
   const records: ProofRecord[] = [];
 
   try {
