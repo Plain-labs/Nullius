@@ -9,7 +9,7 @@
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "12.3.0",
+    "@stellar/stellar-sdk": "^17.0.1",
     "circomlibjs": "0.1.7",
     "snarkjs": "0.7.6"
   },
@@ -23,9 +23,16 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "testMatch": ["**/*.test.ts"],
+    "testMatch": [
+      "**/*.test.ts"
+    ],
     "transform": {
-      "^.+\\.tsx?$": ["ts-jest", { "tsconfig": "tsconfig.test.json" }]
+      "^.+\\.tsx?$": [
+        "ts-jest",
+        {
+          "tsconfig": "tsconfig.test.json"
+        }
+      ]
     },
     "moduleNameMapper": {
       "^circomlibjs$": "<rootDir>/__mocks__/circomlibjs.ts",
