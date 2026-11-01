@@ -44,7 +44,7 @@ const scaled = (t: number) => t * 700;
  * Build a minimal PrivateInputs-equivalent tuple that produces exactly the
  * desired scoreProxy.
  *
- * Strategy: fix txCount=50 (cap), disputeCount=0 (cleanTxs=50),
+ * Strategy: fix txCount=50 (cap), disputeCount=0 (cleanTxs=min(50,50)=50),
  * monthsActive=12 (cap), avgBalance=0, then tweak avgBalance for fine-tuning.
  *
  *   base = 50*480 + 50*480 + 12*1000 + 0 = 24000+24000+12000 = 60000
@@ -104,7 +104,6 @@ describe("computeScoreProxy — exact integer arithmetic", () => {
 
   test("caps tx_capped at 50 — txCapped contribution does not grow beyond 50 txns", () => {
     // tx_capped = min(tx_count, 50) → capped at 50.
-    // clean_txs = tx_count - dispute_count → NOT independently capped (uses raw tx_count).
     // To isolate tx_capped, set dispute_count = tx_count so cleanTxs = 0.
     const at50WithNoClean  = computeScoreProxy(50,  50,  0, 0); // txCapped=50, cleanTxs=0
     const at100WithNoClean = computeScoreProxy(100, 100, 0, 0); // txCapped=50, cleanTxs=0
@@ -112,10 +111,10 @@ describe("computeScoreProxy — exact integer arithmetic", () => {
     expect(at50WithNoClean).toBe(at100WithNoClean);
     expect(at50WithNoClean).toBe(50 * 480); // exactly txCapped*480, cleanTxs=0
 
-    // Confirm that without the cap, a higher raw tx_count DOES increase clean_txs*480
-    const at50  = computeScoreProxy(50,  0, 0, 0); // txCapped=50, cleanTxs=50
-    const at100 = computeScoreProxy(100, 0, 0, 0); // txCapped=50, cleanTxs=100
-    expect(at100).toBeGreaterThan(at50); // cleanTxs*480 term grows with raw tx_count
+    // clean_txs is NOW also capped at 50 — a higher raw tx_count does NOT increase score
+    const at50  = computeScoreProxy(50,  0, 0, 0); // txCapped=50, cleanTxs=min(50,50)=50
+    const at100 = computeScoreProxy(100, 0, 0, 0); // txCapped=50, cleanTxs=min(100,50)=50
+    expect(at100).toBe(at50); // cleanTxs is capped — score must be identical
   });
 
   test("caps monthsActive at 12 — extra months do not increase score", () => {

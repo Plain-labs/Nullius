@@ -9,6 +9,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- `clean_txs` signal in `reputation_score.circom` was unbounded — a wallet with 200 txs
+  and 0 disputes could inflate the clean contribution to 200 × 480 = 96 000 instead of
+  the intended max of 50 × 480 = 24 000. Added a `LessThan(16)` clamp (matching the
+  existing `tx_capped` pattern) so `clean_txs` is capped at 50 before multiplication.
+- `computeScoreProxy` in `sdk/src/prover.ts` and the live score preview in
+  `ProofGenerator.tsx` updated to cap `cleanTxs` at 50, keeping all three in sync.
+- README stack table updated: "Stellar SDK v12" → "Stellar SDK v17" to reflect the
+  dependency bump already pushed.
+
 ### Added
 - GitHub Actions CI pipeline (`ci.yml`) — builds and tests contracts, SDK, and frontend on every push
 - `ErrorBoundary` React component — catches render errors and shows a user-friendly recovery screen
