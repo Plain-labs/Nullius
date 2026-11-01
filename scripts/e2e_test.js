@@ -25,7 +25,7 @@ const {
   Networks,
   TransactionBuilder,
   BASE_FEE,
-  SorobanRpc,
+  rpc,
   nativeToScVal,
   xdr,
   scValToNative,
@@ -175,7 +175,7 @@ async function submitToStellar(proof, publicSignals, inputs) {
   if (!proof) { console.log("  Skipped (mock mode)"); return; }
   if (!SECRET) { console.log("  Skipped (no SECRET_KEY — unfunded keypair)"); return null; }
 
-  const server = new SorobanRpc.Server(RPC_URL);
+  const server = new rpc.Server(RPC_URL);
 
   // Verify the account exists and is funded before attempting the transaction
   try {
@@ -247,7 +247,7 @@ async function assertTier() {
   console.log("\n[4/5] Reading tier from registry...");
   if (!SECRET) { console.log("  Skipped (no SECRET_KEY)"); return null; }
 
-  const server  = new SorobanRpc.Server(RPC_URL);
+  const server  = new rpc.Server(RPC_URL);
   const account = await server.getAccount(keypair.publicKey());
   const { Contract } = require("@stellar/stellar-sdk");
   const contract = new Contract(CONTRACT_IDS.reputationRegistry);
@@ -264,7 +264,7 @@ async function assertTier() {
     .build();
 
   const result = await server.simulateTransaction(tx);
-  if (!SorobanRpc.Api.isSimulationSuccess(result)) {
+  if (!rpc.Api.isSimulationSuccess(result)) {
     throw new Error("get_tier simulation failed");
   }
 
@@ -286,7 +286,7 @@ async function assertQuote(tier) {
   console.log("\n[5/5] Checking payment gate quote...");
   if (!SECRET || tier === null) { console.log("  Skipped (no SECRET_KEY)"); return; }
 
-  const server  = new SorobanRpc.Server(RPC_URL);
+  const server  = new rpc.Server(RPC_URL);
   const account = await server.getAccount(keypair.publicKey());
   const { Contract } = require("@stellar/stellar-sdk");
   const contract = new Contract(CONTRACT_IDS.paymentGate);
@@ -306,7 +306,7 @@ async function assertQuote(tier) {
     .build();
 
   const result = await server.simulateTransaction(tx);
-  if (!SorobanRpc.Api.isSimulationSuccess(result)) {
+  if (!rpc.Api.isSimulationSuccess(result)) {
     throw new Error("quote simulation failed");
   }
 
