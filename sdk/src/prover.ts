@@ -72,8 +72,10 @@ export function computeScoreProxy(
   const txCapped  = Math.min(Math.trunc(txCount),      50);
   const ageCapped = Math.min(Math.trunc(monthsActive), 12);
   const balCapped = Math.min(Math.trunc(avgBalance),   10_000);
-  // clean_txs mirrors the circuit signal: tx_count - dispute_count (both already integers)
-  const cleanTxs  = Math.trunc(txCount) - Math.trunc(disputeCount);
+  // clean_txs is capped at 50 — mirrors the circuit's clean_lt clamp.
+  // Without this cap a wallet with 200 txs and 0 disputes could contribute
+  // 200 × 480 = 96 000 instead of the intended max of 50 × 480 = 24 000.
+  const cleanTxs  = Math.min(Math.trunc(txCount) - Math.trunc(disputeCount), 50);
 
   return txCapped * 480 + cleanTxs * 480 + ageCapped * 1_000 + balCapped;
 }

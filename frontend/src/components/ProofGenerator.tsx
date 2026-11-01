@@ -140,7 +140,8 @@ export function ProofGenerator({ walletAddress, onProofVerified }: Props) {
   const txCapped      = Math.min(inputs.txCount, 50);
   const ageCapped     = Math.min(inputs.monthsActive, 12);
   const balCapped     = Math.min(inputs.avgBalance, 10000);
-  const cleanTxs      = Math.max(0, inputs.txCount - inputs.disputeCount);
+  // Cap at 50 to match the circuit's clean_lt clamp (same ceiling as tx_capped)
+  const cleanTxs      = Math.min(Math.max(0, inputs.txCount - inputs.disputeCount), 50);
   const proxy         = txCapped * 480 + cleanTxs * 480 + ageCapped * 1000 + balCapped;
   const score         = Math.min(100, Math.round(proxy / 700));
   const estimatedTier = score >= 85 ? 3 : score >= 70 ? 2 : score >= 40 ? 1 : 0;
