@@ -29,6 +29,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - `npm audit fix` applied after dependency changes; advisory count reduced from
   57 → 12 (7 low, 1 moderate, 4 high). All remaining highs are inside `snarkjs`'s
   own dependency tree and require a snarkjs major upgrade to resolve.
+- `bfj` override added to root `package.json` (forced to `9.1.4` via npm `overrides`)
+  — bfj 9 drops its `jsonpath` dependency, eliminating the `underscore` high advisory
+  from snarkjs's CLI-only dep chain. Final count: 9 vulnerabilities (7 low, 1 moderate,
+  1 high). Remaining high is `deepmerge` inside jest (requires jest@25 downgrade to
+  fix — not viable); remaining moderate is `esbuild` inside vite@5 (requires vite@8
+  upgrade — deferred to a separate migration).
 
 ### Added
 - GitHub Actions CI pipeline (`ci.yml`) — builds and tests contracts, SDK, and frontend on every push
