@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^17.0.1",
-    "circomlibjs": "0.1.7",
+    "poseidon-lite": "^0.3.0",
     "snarkjs": "0.7.6"
   },
   "devDependencies": {
@@ -35,7 +35,7 @@
       ]
     },
     "moduleNameMapper": {
-      "^circomlibjs$": "<rootDir>/__mocks__/circomlibjs.ts",
+      "^poseidon-lite(/.*)?$": "<rootDir>/__mocks__/poseidon-lite.ts",
       "^snarkjs$": "<rootDir>/__mocks__/snarkjs.ts"
     }
   }

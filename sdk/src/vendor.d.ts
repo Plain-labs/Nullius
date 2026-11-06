@@ -31,9 +31,14 @@ declare module "snarkjs" {
   };
 }
 
-declare module "circomlibjs" {
-  export function buildPoseidon(): Promise<{
-    (inputs: bigint[]): Uint8Array;
-    F: { toString(hash: Uint8Array): string };
-  }>;
+declare module "poseidon-lite" {
+  type FieldElement = bigint | string | number;
+  export function poseidon1(inputs: FieldElement[]): bigint;
+  export function poseidon2(inputs: FieldElement[]): bigint;
+  export function poseidon3(inputs: FieldElement[]): bigint;
+  export function poseidon4(inputs: FieldElement[]): bigint;
+  export function poseidon5(inputs: FieldElement[]): bigint;
+  export function poseidon6(inputs: FieldElement[]): bigint;
+  export function poseidon7(inputs: FieldElement[]): bigint;
+  export function poseidon8(inputs: FieldElement[]): bigint;
 }

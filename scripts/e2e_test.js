@@ -100,7 +100,7 @@ async function generateProof() {
   const salt = BigInt("0x" + require("crypto").randomBytes(31).toString("hex"));
 
   // Build Poseidon commitment (matches circuit)
-  // For testing we use a simple hash stub; in production use circomlibjs
+  // For testing we use a simple hash stub; in production use poseidon-lite
   const inputs = {
     tx_count:      "35",
     dispute_count: "1",
@@ -114,17 +114,15 @@ async function generateProof() {
 
   // snarkjs fullProve computes witness internally — commitment is a private output
   // We need to compute commitment externally to pass as public input.
-  // For e2e test: use snarkjs calculateWitness first to get commitment, then prove.
-  const { buildPoseidon } = require("circomlibjs");
-  const poseidon = await buildPoseidon();
-  const hash = poseidon([
+  // For e2e test: use poseidon-lite to compute the Poseidon hash locally.
+  const { poseidon5 } = require("poseidon-lite");
+  inputs.commitment = poseidon5([
     BigInt(inputs.tx_count),
     BigInt(inputs.dispute_count),
     BigInt(inputs.avg_balance),
     BigInt(inputs.months_active),
     salt,
-  ]);
-  inputs.commitment = poseidon.F.toString(hash);
+  ]).toString();
 
   console.log("  Private inputs prepared (commitment derived locally)");
   console.log("  Commitment:", inputs.commitment.slice(0, 20) + "...");
