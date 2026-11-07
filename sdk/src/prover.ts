@@ -25,19 +25,20 @@ export function generateSalt(): string {
  * Compute Poseidon commitment over private inputs.
  * This commitment is the public on-chain anchor — it ties the proof to the user
  * without revealing anything about the underlying data.
+ *
+ * Uses poseidon-lite — a zero-dependency BN254 Poseidon implementation that
+ * produces identical outputs to circomlibjs (verified by poseidon_parity.test.ts)
+ * and carries no transitive vulnerabilities.
  */
 async function computeCommitment(inputs: PrivateInputs): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { buildPoseidon } = await import("circomlibjs") as any;
-  const poseidon = await buildPoseidon();
-  const hash = poseidon([
+  const { poseidon5 } = await import("poseidon-lite");
+  return poseidon5([
     BigInt(inputs.txCount),
     BigInt(inputs.disputeCount),
     BigInt(inputs.avgBalance),
     BigInt(inputs.monthsActive),
     BigInt(inputs.salt),
-  ]);
-  return poseidon.F.toString(hash);
+  ]).toString();
 }
 
 /**
@@ -72,8 +73,10 @@ export function computeScoreProxy(
   const txCapped  = Math.min(Math.trunc(txCount),      50);
   const ageCapped = Math.min(Math.trunc(monthsActive), 12);
   const balCapped = Math.min(Math.trunc(avgBalance),   10_000);
-  // clean_txs mirrors the circuit signal: tx_count - dispute_count (both already integers)
-  const cleanTxs  = Math.trunc(txCount) - Math.trunc(disputeCount);
+  // clean_txs is capped at 50 — mirrors the circuit's clean_lt clamp.
+  // Without this cap a wallet with 200 txs and 0 disputes could contribute
+  // 200 × 480 = 96 000 instead of the intended max of 50 × 480 = 24 000.
+  const cleanTxs  = Math.min(Math.trunc(txCount) - Math.trunc(disputeCount), 50);
 
   return txCapped * 480 + cleanTxs * 480 + ageCapped * 1_000 + balCapped;
 }
@@ -81,6 +84,8 @@ export function computeScoreProxy(
 /**
  * Determine which tier threshold to prove against based on user's inputs.
  * We pick the highest tier the user can plausibly claim, then let the circuit confirm it.
+ *
+ * @internal — Use selectTier() for the public API with a Tier return type.
  */
 function selectThreshold(inputs: PrivateInputs): number {
   // Use the exported utility so the formula is in one place and independently testable.
@@ -96,6 +101,47 @@ function selectThreshold(inputs: PrivateInputs): number {
   if (scoreProxy >= TIER_THRESHOLDS.silver * 700) return TIER_THRESHOLDS.silver;
   if (scoreProxy >= TIER_THRESHOLDS.bronze * 700) return TIER_THRESHOLDS.bronze;
   throw new Error("Score too low for any tier (minimum Bronze threshold is 40)");
+}
+
+/**
+ * Predict which tier a set of inputs will qualify for before proof generation.
+ *
+ * This function mirrors the exact integer arithmetic of the circuit, using
+ * computeScoreProxy() to calculate the score and comparing against tier
+ * thresholds with the same scaling factor (700) as the circuit.
+ *
+ * Tier boundaries (on the 0-100 score scale):
+ *   - Bronze: threshold = 40 → threshold_scaled = 28,000
+ *   - Silver: threshold = 70 → threshold_scaled = 49,000
+ *   - Gold:   threshold = 85 → threshold_scaled = 59,500
+ *
+ * @param inputs - Private financial data (txCount, disputeCount, monthsActive, avgBalance)
+ * @returns The highest tier the inputs qualify for, or 0 (Unverified) if below Bronze
+ *
+ * @example
+ * ```typescript
+ * const tier = selectTier({
+ *   txCount: 50,
+ *   disputeCount: 0,
+ *   monthsActive: 12,
+ *   avgBalance: 5000,
+ *   salt: "12345"
+ * });
+ * console.log(tier); // 3 (Gold)
+ * ```
+ */
+export function selectTier(inputs: Omit<PrivateInputs, "salt">): Tier {
+  const scoreProxy = computeScoreProxy(
+    inputs.txCount,
+    inputs.disputeCount,
+    inputs.monthsActive,
+    inputs.avgBalance,
+  );
+
+  if (scoreProxy >= TIER_THRESHOLDS.gold   * 700) return 3;
+  if (scoreProxy >= TIER_THRESHOLDS.silver * 700) return 2;
+  if (scoreProxy >= TIER_THRESHOLDS.bronze * 700) return 1;
+  return 0;
 }
 
 /**

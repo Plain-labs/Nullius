@@ -9,15 +9,16 @@ export default defineConfig({
       "@nullius/sdk": path.resolve(__dirname, "../sdk/src/index.ts"),
     },
   },
-  // Polyfill Node globals used by snarkjs/circomlibjs at runtime
+  // Polyfill Node globals used by snarkjs at runtime
   define: {
     "process.env": "{}",
     "process.browser": "true",
     global: "globalThis",
   },
   optimizeDeps: {
-    // Let Vite pre-bundle these so they work cleanly in the browser
-    include: ["snarkjs", "circomlibjs"],
+    // Let Vite pre-bundle snarkjs so it works cleanly in the browser.
+    // poseidon-lite is zero-dependency and pure ESM — no pre-bundling needed.
+    include: ["snarkjs"],
   },
   server: {
     headers: {

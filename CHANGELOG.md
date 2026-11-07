@@ -9,6 +9,33 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- `clean_txs` signal in `reputation_score.circom` was unbounded — a wallet with 200 txs
+  and 0 disputes could inflate the clean contribution to 200 × 480 = 96 000 instead of
+  the intended max of 50 × 480 = 24 000. Added a `LessThan(16)` clamp (matching the
+  existing `tx_capped` pattern) so `clean_txs` is capped at 50 before multiplication.
+- `computeScoreProxy` in `sdk/src/prover.ts` and the live score preview in
+  `ProofGenerator.tsx` updated to cap `cleanTxs` at 50, keeping all three in sync.
+- README stack table updated: "Stellar SDK v12" → "Stellar SDK v17" to reflect the
+  dependency bump already pushed.
+- `SorobanRpc` namespace (removed in `@stellar/stellar-sdk` v17) replaced with `rpc`
+  in `sdk/src/contracts.ts` and `frontend/src/components/ProofHistory.tsx`.
+- `sdk/package.json` pinned dep `@stellar/stellar-sdk: 12.3.0` updated to `^17.0.1`;
+  both workspaces now resolve 17.4.0, clearing the `toml` critical advisory.
+- Replaced `circomlibjs` (GPL-3.0, pulls in ethers v5 / `elliptic` / `ws` advisories)
+  with `poseidon-lite` (MIT, zero dependencies) for Poseidon commitment hashing.
+  Output parity verified against circomlibjs across 8 test vectors before removal;
+  known-answer tests retained in `sdk/src/poseidon_parity.test.ts`.
+- `npm audit fix` applied after dependency changes; advisory count reduced from
+  57 → 12 (7 low, 1 moderate, 4 high). All remaining highs are inside `snarkjs`'s
+  own dependency tree and require a snarkjs major upgrade to resolve.
+- `bfj` override added to root `package.json` (forced to `9.1.4` via npm `overrides`)
+  — bfj 9 drops its `jsonpath` dependency, eliminating the `underscore` high advisory
+  from snarkjs's CLI-only dep chain. Final count: 9 vulnerabilities (7 low, 1 moderate,
+  1 high). Remaining high is `deepmerge` inside jest (requires jest@25 downgrade to
+  fix — not viable); remaining moderate is `esbuild` inside vite@5 (requires vite@8
+  upgrade — deferred to a separate migration).
+
 ### Added
 - GitHub Actions CI pipeline (`ci.yml`) — builds and tests contracts, SDK, and frontend on every push
 - `ErrorBoundary` React component — catches render errors and shows a user-friendly recovery screen

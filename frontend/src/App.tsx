@@ -3,11 +3,12 @@ import { useFreighter } from "./hooks/useFreighter";
 import { ProofGenerator } from "./components/ProofGenerator";
 import { ReputationCard } from "./components/ReputationCard";
 import { PaymentWidget } from "./components/PaymentWidget";
+import { ProofHistory } from "./components/ProofHistory";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { LandingPage } from "./components/LandingPage";
 import type { ProofBundle, Tier } from "@nullius/sdk";
 
-type Tab = "prove" | "score" | "pay";
+type Tab = "prove" | "score" | "pay" | "history";
 
 export default function App() {
   const {
@@ -30,6 +31,7 @@ export default function App() {
     { id: "prove", label: "Generate Proof" },
     { id: "score", label: "My Score" },
     { id: "pay",   label: "Send Payment" },
+    { id: "history", label: "History" },
   ];
 
   // ----------------------------------------------------------------
@@ -156,6 +158,11 @@ export default function App() {
                   walletAddress={publicKey}
                   currentTier={verifiedTier}
                 />
+              </ErrorBoundary>
+            )}
+            {activeTab === "history" && (
+              <ErrorBoundary>
+                <ProofHistory walletAddress={publicKey} />
               </ErrorBoundary>
             )}
           </div>

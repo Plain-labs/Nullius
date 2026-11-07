@@ -9,8 +9,8 @@
     "test": "jest --passWithNoTests"
   },
   "dependencies": {
-    "@stellar/stellar-sdk": "12.3.0",
-    "circomlibjs": "0.1.7",
+    "@stellar/stellar-sdk": "^17.0.1",
+    "poseidon-lite": "^0.3.0",
     "snarkjs": "0.7.6"
   },
   "devDependencies": {
@@ -23,12 +23,19 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "testMatch": ["**/*.test.ts"],
+    "testMatch": [
+      "**/*.test.ts"
+    ],
     "transform": {
-      "^.+\\.tsx?$": ["ts-jest", { "tsconfig": "tsconfig.test.json" }]
+      "^.+\\.tsx?$": [
+        "ts-jest",
+        {
+          "tsconfig": "tsconfig.test.json"
+        }
+      ]
     },
     "moduleNameMapper": {
-      "^circomlibjs$": "<rootDir>/__mocks__/circomlibjs.ts",
+      "^poseidon-lite(/.*)?$": "<rootDir>/__mocks__/poseidon-lite.ts",
       "^snarkjs$": "<rootDir>/__mocks__/snarkjs.ts"
     }
   }

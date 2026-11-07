@@ -99,11 +99,16 @@ export function useHorizonData() {
         const txRes: Response = await window.fetch(nextUrl);
         if (!txRes.ok) break;
 
-        const txPage: {
-          _embedded?: { records: Array<{ successful: boolean; created_at: string; fee_charged: string }> };
-          _links?: { next?: { href: string } };
-        } = await txRes.json();
-        const records = txPage._embedded?.records ?? [];
+        const txPage: { _embedded?: { records?: unknown[] }; _links?: { next?: { href?: string } } } = await txRes.json();
+        const records: Array<{
+          successful: boolean;
+          created_at: string;
+          fee_charged: string;
+        }> = (txPage._embedded?.records ?? []) as Array<{
+          successful: boolean;
+          created_at: string;
+          fee_charged: string;
+        }>;
 
         if (records.length === 0) break;
 

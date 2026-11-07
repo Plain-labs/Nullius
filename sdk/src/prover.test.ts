@@ -1,7 +1,11 @@
 /**
  * @file prover.test.ts
  *
- * Unit tests for computeScoreProxy() and the tier-selection logic in selectThreshold().
+ * Unit tests for computeScoreProxy(), selectTier(), and the tier-selection logic.
+ *
+ * These tests address issue #10: SDK selectThreshold could select a tier that
+ * the circuit would not satisfy at boundary values due to formula mismatches.
+ * @see https://github.com/Plain-labs/Nullius/issues/10
  *
  * The circuit computes:
  *   score_proxy      = tx_capped*480 + clean_txs*480 + age_capped*1000 + bal_capped
@@ -17,16 +21,17 @@
  * -------------
  * For each boundary B we construct a minimal input set whose score_proxy equals
  * exactly B*700 (on-boundary) and B*700-1 (one below).  This confirms:
- *   • on-boundary  → selectThreshold returns the tier at B
- *   • one-below    → selectThreshold returns the tier below B (or throws for Bronze-1)
+ *   • on-boundary  → selectTier returns the tier at B
+ *   • one-below    → selectTier returns the tier below B (or 0 for Bronze-1)
  *
  * NOTE: generateReputationProof itself is NOT tested end-to-end here because it
  * requires compiled WASM/zkey artifacts and the snarkjs runtime.  The smoke-test
  * at the bottom verifies only argument construction (no circuit invocation).
  */
 
-import { computeScoreProxy } from "./prover";
+import { computeScoreProxy, selectTier } from "./prover";
 import { TIER_THRESHOLDS } from "./types";
+import type { Tier } from "./types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -39,7 +44,7 @@ const scaled = (t: number) => t * 700;
  * Build a minimal PrivateInputs-equivalent tuple that produces exactly the
  * desired scoreProxy.
  *
- * Strategy: fix txCount=50 (cap), disputeCount=0 (cleanTxs=50),
+ * Strategy: fix txCount=50 (cap), disputeCount=0 (cleanTxs=min(50,50)=50),
  * monthsActive=12 (cap), avgBalance=0, then tweak avgBalance for fine-tuning.
  *
  *   base = 50*480 + 50*480 + 12*1000 + 0 = 24000+24000+12000 = 60000
@@ -99,7 +104,6 @@ describe("computeScoreProxy — exact integer arithmetic", () => {
 
   test("caps tx_capped at 50 — txCapped contribution does not grow beyond 50 txns", () => {
     // tx_capped = min(tx_count, 50) → capped at 50.
-    // clean_txs = tx_count - dispute_count → NOT independently capped (uses raw tx_count).
     // To isolate tx_capped, set dispute_count = tx_count so cleanTxs = 0.
     const at50WithNoClean  = computeScoreProxy(50,  50,  0, 0); // txCapped=50, cleanTxs=0
     const at100WithNoClean = computeScoreProxy(100, 100, 0, 0); // txCapped=50, cleanTxs=0
@@ -107,10 +111,10 @@ describe("computeScoreProxy — exact integer arithmetic", () => {
     expect(at50WithNoClean).toBe(at100WithNoClean);
     expect(at50WithNoClean).toBe(50 * 480); // exactly txCapped*480, cleanTxs=0
 
-    // Confirm that without the cap, a higher raw tx_count DOES increase clean_txs*480
-    const at50  = computeScoreProxy(50,  0, 0, 0); // txCapped=50, cleanTxs=50
-    const at100 = computeScoreProxy(100, 0, 0, 0); // txCapped=50, cleanTxs=100
-    expect(at100).toBeGreaterThan(at50); // cleanTxs*480 term grows with raw tx_count
+    // clean_txs is NOW also capped at 50 — a higher raw tx_count does NOT increase score
+    const at50  = computeScoreProxy(50,  0, 0, 0); // txCapped=50, cleanTxs=min(50,50)=50
+    const at100 = computeScoreProxy(100, 0, 0, 0); // txCapped=50, cleanTxs=min(100,50)=50
+    expect(at100).toBe(at50); // cleanTxs is capped — score must be identical
   });
 
   test("caps monthsActive at 12 — extra months do not increase score", () => {
@@ -227,6 +231,66 @@ describe("selectThreshold — tier boundary round-trip via computeScoreProxy", (
       expect(tierFromProxy(proxy)).toBe(tier);
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// selectTier — direct API tests at boundary scores
+// Tests the exported selectTier() function at boundary scores 39, 40, 69, 70, 84, 85.
+// This validates the actual SDK implementation, not a test-local mock.
+// Fixes issue #10: https://github.com/Plain-labs/Nullius/issues/10
+// ---------------------------------------------------------------------------
+
+describe("selectTier — boundary score tests (exported API)", () => {
+  // Tier enum values: 0=Unverified, 1=Bronze, 2=Silver, 3=Gold
+  const cases: Array<{ label: string; score: number; expectedTier: Tier }> = [
+    { label: "score=39 → Unverified (below Bronze)", score: 39, expectedTier: 0 },
+    { label: "score=40 → Bronze (at Bronze boundary)", score: 40, expectedTier: 1 },
+    { label: "score=69 → Bronze (below Silver)",       score: 69, expectedTier: 1 },
+    { label: "score=70 → Silver (at Silver boundary)", score: 70, expectedTier: 2 },
+    { label: "score=84 → Silver (below Gold)",         score: 84, expectedTier: 2 },
+    { label: "score=85 → Gold (at Gold boundary)",     score: 85, expectedTier: 3 },
+  ];
+
+  for (const { label, score, expectedTier } of cases) {
+    test(label, () => {
+      // Build inputs that produce exactly score * 700 score_proxy
+      const target = scaled(score);
+      const inp = inputsForScore(target);
+
+      // Verify the helper constructed correct inputs
+      const proxy = computeScoreProxy(
+        inp.txCount,
+        inp.disputeCount,
+        inp.monthsActive,
+        inp.avgBalance,
+      );
+      expect(proxy).toBe(target);
+
+      // Test the actual exported selectTier function
+      const tier = selectTier(inp);
+      expect(tier).toBe(expectedTier);
+    });
+  }
+
+  test("maximum score (70000) → Gold", () => {
+    const tier = selectTier({
+      txCount: 50,
+      disputeCount: 0,
+      monthsActive: 12,
+      avgBalance: 10_000,
+    });
+    expect(tier).toBe(3);
+  });
+
+  test("zero inputs → Unverified", () => {
+    const tier = selectTier({
+      txCount: 0,
+      disputeCount: 0,
+      monthsActive: 0,
+      avgBalance: 0,
+    });
+    expect(tier).toBe(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

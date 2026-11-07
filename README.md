@@ -71,7 +71,7 @@ PaymentGate enforces fee rate + per-transaction limit automatically
 | ZK circuit | Circom 2.0 + snarkjs (Groth16 / BN254) |
 | On-chain   | Soroban (Rust) — 3 contracts on Stellar |
 | Data       | Stellar Horizon API (client-side fetch) |
-| SDK        | TypeScript + Stellar SDK v12 |
+| SDK        | TypeScript + Stellar SDK v17 |
 | Frontend   | React + Vite + Freighter wallet |
 
 ---

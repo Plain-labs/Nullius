@@ -92,6 +92,18 @@ template ReputationScore() {
     bal_lt.in[1] <== 10000;
     bal_capped <== bal_lt.out * avg_balance + (1 - bal_lt.out) * 10000;
 
+    // clean_txs: capped at 50 (same cap as tx_capped) to prevent gaming
+    // A wallet with hundreds of txs and zero disputes must not exceed the
+    // designed max contribution of 50 * 480 = 24 000 for this component.
+    signal clean_txs_raw;
+    clean_txs_raw <== tx_count - dispute_count;
+
+    signal clean_txs;
+    component clean_lt = LessThan(16);
+    clean_lt.in[0] <== clean_txs_raw;
+    clean_lt.in[1] <== 50;
+    clean_txs <== clean_lt.out * clean_txs_raw + (1 - clean_lt.out) * 50;
+
     // Combined score proxy (avoids division):
     // Scale everything by 600 (LCM of 50 and 12) to stay integer:
     //   tx contribution:      tx_capped  * 480          (max 50*480    = 24000)
@@ -100,9 +112,6 @@ template ReputationScore() {
     //   balance contribution: bal_capped * 1            (max 10000*1   = 10000)
     //   total max = 70000 → threshold_scaled = threshold * 700
     // threshold_scaled = threshold * 700
-
-    signal clean_txs;
-    clean_txs <== tx_count - dispute_count;
 
     signal score_proxy;
     score_proxy <== tx_capped * 480 + clean_txs * 480 + age_capped * 1000 + bal_capped;

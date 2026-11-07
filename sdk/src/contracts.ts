@@ -5,7 +5,7 @@ import {
   BASE_FEE,
   xdr,
   Keypair,
-  SorobanRpc,
+  rpc,
   scValToNative,
   nativeToScVal,
   StrKey,
@@ -130,14 +130,14 @@ export function encodeG2(
 // Nullius Contract Client
 // ----------------------------------------------------------------
 export class NulliusClient {
-  private server: SorobanRpc.Server;
+  private server: rpc.Server;
 
   constructor() {
-    this.server = new SorobanRpc.Server(RPC_URL);
+    this.server = new rpc.Server(RPC_URL);
   }
 
   /** Expose the underlying RPC server for direct use in frontend signing flows. */
-  getServer(): SorobanRpc.Server {
+  getServer(): rpc.Server {
     return this.server;
   }
 
@@ -248,7 +248,7 @@ export class NulliusClient {
       .build();
 
     const result = await this.server.simulateTransaction(tx);
-    if (SorobanRpc.Api.isSimulationSuccess(result)) {
+    if (rpc.Api.isSimulationSuccess(result)) {
       return scValToNative(result.result!.retval) as Tier;
     }
     throw new Error("Failed to fetch tier");
@@ -280,7 +280,7 @@ export class NulliusClient {
       .build();
 
     const result = await this.server.simulateTransaction(tx);
-    if (SorobanRpc.Api.isSimulationSuccess(result)) {
+    if (rpc.Api.isSimulationSuccess(result)) {
       const [fee, net, tier] = scValToNative(result.result!.retval) as [bigint, bigint, number];
       const feePercent = ((Number(fee) / Number(amountStroops)) * 100).toFixed(2);
       return {
@@ -314,7 +314,7 @@ export class NulliusClient {
       .build();
 
     const result = await this.server.simulateTransaction(tx);
-    if (SorobanRpc.Api.isSimulationSuccess(result)) {
+    if (rpc.Api.isSimulationSuccess(result)) {
       return scValToNative(result.result!.retval) as bigint;
     }
     throw new Error("Failed to get payment limit");
@@ -377,8 +377,8 @@ export class NulliusClient {
       delayMs = Math.min(delayMs * 2, 8_000); // cap at 8 s
 
       const status = await this.server.getTransaction(txHash);
-      if (status.status === SorobanRpc.Api.GetTransactionStatus.SUCCESS) return;
-      if (status.status === SorobanRpc.Api.GetTransactionStatus.FAILED) {
+      if (status.status === rpc.Api.GetTransactionStatus.SUCCESS) return;
+      if (status.status === rpc.Api.GetTransactionStatus.FAILED) {
         throw new Error(`Transaction failed on-chain: ${txHash}`);
       }
     }
