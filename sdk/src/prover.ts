@@ -25,19 +25,20 @@ export function generateSalt(): string {
  * Compute Poseidon commitment over private inputs.
  * This commitment is the public on-chain anchor — it ties the proof to the user
  * without revealing anything about the underlying data.
+ *
+ * Uses poseidon-lite — a zero-dependency BN254 Poseidon implementation that
+ * produces identical outputs to circomlibjs (verified by poseidon_parity.test.ts)
+ * and carries no transitive vulnerabilities.
  */
 async function computeCommitment(inputs: PrivateInputs): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { buildPoseidon } = await import("circomlibjs") as any;
-  const poseidon = await buildPoseidon();
-  const hash = poseidon([
+  const { poseidon5 } = await import("poseidon-lite");
+  return poseidon5([
     BigInt(inputs.txCount),
     BigInt(inputs.disputeCount),
     BigInt(inputs.avgBalance),
     BigInt(inputs.monthsActive),
     BigInt(inputs.salt),
-  ]);
-  return poseidon.F.toString(hash);
+  ]).toString();
 }
 
 /**

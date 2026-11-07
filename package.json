@@ -28,6 +28,9 @@
   "dependencies": {
     "circomlib": "^2.0.5"
   },
+  "overrides": {
+    "bfj": "9.1.4"
+  },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "4.62.2"
   }
