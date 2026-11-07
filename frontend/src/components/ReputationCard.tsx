@@ -10,10 +10,10 @@ interface Props {
 }
 
 const TIER_BENEFITS: Record<Tier, string[]> = {
-  0: ["Basic access only", "5.0% transaction fee", "Max 1,000 XLM/tx"],
+  0: ["Basic access only", "5.0% transaction fee", "Max 5,000 XLM/tx"],
   1: ["Bronze tier verified", "2.0% transaction fee", "Max 10,000 XLM/tx"],
   2: ["Silver tier verified", "1.0% transaction fee", "Max 100,000 XLM/tx"],
-  3: ["Gold tier verified", "0.3% transaction fee", "Max 1,000,000 XLM/tx", "Undercollateralised credit access"],
+  3: ["Premium tier verified", "5% transaction fee", "Max 1,000,000 XLM/tx", "Undercollateralised credit access"],
 };
 
 export function ReputationCard({ walletAddress, latestProof, tier }: Props) {
@@ -32,7 +32,7 @@ export function ReputationCard({ walletAddress, latestProof, tier }: Props) {
 
   return (
     <div className="card">
-      <h2>My Reputation Score</h2>
+      <h2>The Average Score</h2>
 
       {loading ? (
         <div className="step-indicator"><div className="step-spinner" /><span>Fetching on-chain tier…</span></div>
