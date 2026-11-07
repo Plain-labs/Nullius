@@ -31,10 +31,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
   own dependency tree and require a snarkjs major upgrade to resolve.
 - `bfj` override added to root `package.json` (forced to `9.1.4` via npm `overrides`)
   — bfj 9 drops its `jsonpath` dependency, eliminating the `underscore` high advisory
-  from snarkjs's CLI-only dep chain. Final count: 9 vulnerabilities (7 low, 1 moderate,
-  1 high). Remaining high is `deepmerge` inside jest (requires jest@25 downgrade to
-  fix — not viable); remaining moderate is `esbuild` inside vite@5 (requires vite@8
-  upgrade — deferred to a separate migration).
+  from snarkjs's CLI-only dep chain.
+- Upgraded `jest` 29 → 30 and `vite` 5 → 8 (with `@vitejs/plugin-react` 4 → 6),
+  clearing the `esbuild` moderate and the `deepmerge` high (downgraded to low in
+  jest 30). Added npm `overrides` for `glob` (`^14.0.2`), `minimatch` (`^11.0.1`),
+  and `jsesc` (`3.0.2` — the 3.1.0 release is Linux-only) to patch transitive
+  vulnerabilities introduced by the jest 30 upgrade.
+- Final audit: **6 low** vulnerabilities, **0 moderate, 0 high, 0 critical**.
+  All 6 are the same `deepmerge` advisory propagated through jest's internal
+  dependency chain; the only npm-offered fix is `jest@25` (a 5-major-version
+  downgrade), which is not viable.
 
 ### Added
 - GitHub Actions CI pipeline (`ci.yml`) — builds and tests contracts, SDK, and frontend on every push
