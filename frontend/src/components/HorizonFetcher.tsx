@@ -46,7 +46,6 @@ function DataRow({
 }
 
 export function HorizonFetcher({
-  walletAddress,
   fetchState,
   data,
   error,
@@ -54,7 +53,6 @@ export function HorizonFetcher({
   onConfirm,
   onDismiss,
 }: Props) {
-  // --- Idle state: prompt to load ---
   if (fetchState === "idle") {
     return (
       <div className="horizon-banner">
