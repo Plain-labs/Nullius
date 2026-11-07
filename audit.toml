@@ -1,0 +1,22 @@
+# cargo-audit configuration
+# https://github.com/rustsec/cargo-audit/blob/main/audit.toml.example
+
+[advisories]
+# RUSTSEC-2026-0387: crypto-bigint 0.5.5 — timing variability in constant-time ops
+#
+# This crate is a deep transitive dependency of soroban-sdk 27.0.0:
+#   soroban-sdk 27.0.0 → soroban-env-host 27.0.0 → k256 0.13.4
+#   → ecdsa 0.16.9 → elliptic-curve 0.13.8 → crypto-bigint 0.5.5
+#
+# The fix requires crypto-bigint >= 0.7.6, which is a semver-incompatible
+# upgrade — elliptic-curve 0.13.x constrains crypto-bigint to ^0.5.
+# The only path to the fix is upgrading soroban-sdk to 30.0.0-rc.1
+# (a release candidate with breaking API changes), deferred to a
+# separate migration.
+#
+# Impact assessment: crypto-bigint is used internally by the Soroban
+# host runtime for ECDSA/P-256 operations in the test environment.
+# The project's on-chain BN254 verification uses Stellar's native host
+# functions, not this crate. The timing variability does not affect
+# the security of the deployed contracts.
+ignore = ["RUSTSEC-2026-0387"]
