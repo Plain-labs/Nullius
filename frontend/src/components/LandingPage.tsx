@@ -64,7 +64,7 @@ const TIERS = [
     color: "#d97706",
     fee: "0.3%",
     limit: "1,000,000 XLM",
-    perks: ["Score ≥ 85", "Lowest fees", "Undercollateralised credit"],
+    perks: ["Score ≥ 85", "Lowest fees (0.3%)", "1,000,000 XLM/tx limit"],
     threshold: 85,
     highlight: true,
   },
@@ -186,7 +186,7 @@ export function LandingPage({ onConnect, connecting, error }: Props) {
           </h2>
           <p className="landing-section-sub">
             Nullius uses Groth16 ZK proofs compiled with Circom, verified by a
-            Stylus smart contract on Stellar testnet.
+            Soroban smart contract on Stellar testnet.
           </p>
           <div className="landing-features-grid">
             {FEATURES.map((f) => (

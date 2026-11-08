@@ -76,7 +76,8 @@ export function PaymentWidget({ walletAddress, currentTier }: Props) {
         "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC";
 
       // Fee collector address — configurable via VITE_FEE_COLLECTOR env var.
-      // Defaults to the sender in demo mode (fees are circular / effectively zero).
+      // Defaults to the sender on testnet so the demo works without a separate
+      // funded collector account. Set VITE_FEE_COLLECTOR in .env for real usage.
       const feeCollector =
         (typeof import.meta !== "undefined" && (import.meta.env as Record<string, string | undefined>)["VITE_FEE_COLLECTOR"]) ||
         walletAddress;

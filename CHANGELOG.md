@@ -93,7 +93,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## [0.1.0] — 2025-06-15
 
 ### Added
-- Initial hackathon release for Stellar Hacks: Real-World ZK
+- Initial release for Stellar Hacks: Real-World ZK
 - `ReputationScore` Circom 2.0 circuit with Poseidon commitment and Groth16 proof
 - `Groth16Verifier` Soroban contract using Stellar native BN254 host functions
 - `ReputationRegistry` contract — stores wallet → Bronze/Silver/Gold tier mapping

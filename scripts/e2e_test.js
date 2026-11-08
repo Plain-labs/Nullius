@@ -108,13 +108,11 @@ async function generateProof() {
     months_active: "10",
     salt:          salt.toString(),
     threshold:     "70",  // Silver
-    // commitment computed by circuit witness — use snarkjs to derive
-    commitment:    "0",   // snarkjs will compute this via witness generation
+    commitment:    "0",   // placeholder — overwritten below with Poseidon hash
   };
 
-  // snarkjs fullProve computes witness internally — commitment is a private output
-  // We need to compute commitment externally to pass as public input.
-  // For e2e test: use poseidon-lite to compute the Poseidon hash locally.
+  // commitment is a public input to the circuit; we must supply it ourselves.
+  // Compute it here using poseidon-lite (same implementation used by the SDK).
   const { poseidon5 } = require("poseidon-lite");
   inputs.commitment = poseidon5([
     BigInt(inputs.tx_count),
